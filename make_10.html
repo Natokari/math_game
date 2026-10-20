@@ -1,0 +1,1893 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>MAKE 10 - 超ドパ感パズルゲーム</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@700;900&family=Noto+Sans+JP:wght@700;900&display=swap" rel="stylesheet">
+    <style>
+        * {
+            box-sizing: border-box;
+            user-select: none;
+            -webkit-user-select: none;
+            -webkit-touch-callout: none;
+        }
+        body {
+            font-family: 'Inter', 'Noto Sans JP', sans-serif;
+            background-color: #060913;
+            color: #f8fafc;
+            overflow-x: hidden;
+        }
+        /* 下からせり上がるネオン制限時間ゲージ */
+        #lava-container {
+            position: fixed;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            height: 0%;
+            z-index: 5;
+            pointer-events: none;
+            transition: height 0.12s linear, background 0.4s ease;
+            background: linear-gradient(180deg, rgba(236, 72, 153, 0.42) 0%, rgba(15, 23, 42, 0.85) 100%);
+            background-image: 
+                linear-gradient(rgba(255, 255, 255, 0.06) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(255, 255, 255, 0.06) 1px, transparent 1px);
+            background-size: 28px 28px;
+        }
+        #lava-line {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 4px;
+            background: #f472b6;
+            box-shadow: 0 0 20px #ec4899, 0 0 40px #ec4899;
+            transition: background 0.4s ease, box-shadow 0.4s ease;
+        }
+        /* 数字カード演出 */
+        .number-card {
+            transition: transform 0.14s cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 0.14s ease, border-color 0.14s ease;
+        }
+        .number-card:active {
+            transform: scale(0.94);
+        }
+        .number-card.selected {
+            transform: translateY(-6px) scale(1.03);
+            box-shadow: 0 0 26px rgba(250, 204, 21, 0.55);
+        }
+        /* 演算子ボタン演出 */
+        .op-btn {
+            transition: all 0.14s ease;
+        }
+        .op-btn:active {
+            transform: scale(0.92);
+        }
+        .op-btn.selected {
+            background: linear-gradient(135deg, #f59e0b, #ea580c);
+            color: #ffffff;
+            border-color: #fde047;
+            box-shadow: 0 0 22px rgba(245, 158, 11, 0.65);
+            transform: translateY(-3px) scale(1.05);
+        }
+        /* ポップアニメーション */
+        @keyframes popIn {
+            0% { transform: scale(0.75); opacity: 0.3; }
+            70% { transform: scale(1.06); }
+            100% { transform: scale(1); opacity: 1; }
+        }
+        .anim-pop {
+            animation: popIn 0.22s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+        }
+        /* フローティングダメージ演出 */
+        @keyframes floatUp {
+            0% { transform: translate(-50%, 0) scale(0.7); opacity: 0; }
+            20% { transform: translate(-50%, -18px) scale(1.12); opacity: 1; }
+            80% { transform: translate(-50%, -55px) scale(1); opacity: 1; }
+            100% { transform: translate(-50%, -80px) scale(0.9); opacity: 0; }
+        }
+        .floating-dmg {
+            position: fixed;
+            left: 50%;
+            top: 42%;
+            z-index: 60;
+            pointer-events: none;
+            animation: floatUp 1.25s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+        }
+        @keyframes confettiFall {
+            0% { transform: translate3d(0, -10vh, 0) rotate(0deg); opacity: 1; }
+            85% { opacity: 1; }
+            100% { transform: translate3d(var(--drift, 40px), 105vh, 0) rotate(720deg); opacity: 0; }
+        }
+        .confetti-piece {
+            position: fixed;
+            top: -20px;
+            z-index: 70;
+            pointer-events: none;
+            border-radius: 3px;
+            animation: confettiFall var(--dur, 2.2s) cubic-bezier(0.25, 0.46, 0.45, 0.94) forwards;
+        }
+        @keyframes screenFlash {
+            0% { opacity: 0.85; }
+            100% { opacity: 0; }
+        }
+        .gacha-flash {
+            position: fixed;
+            inset: 0;
+            z-index: 65;
+            pointer-events: none;
+            background: radial-gradient(circle, rgba(253, 224, 71, 0.85) 0%, rgba(236, 72, 153, 0.65) 50%, rgba(6, 182, 212, 0) 100%);
+            animation: screenFlash 0.75s ease-out forwards;
+        }
+        @keyframes rainbowGlow {
+            0% { border-color: #f472b6; box-shadow: 0 0 22px rgba(244, 114, 182, 0.85), inset 0 0 14px rgba(244, 114, 182, 0.35); }
+            25% { border-color: #facc15; box-shadow: 0 0 26px rgba(250, 204, 21, 0.9), inset 0 0 16px rgba(250, 204, 21, 0.4); }
+            50% { border-color: #4ade80; box-shadow: 0 0 22px rgba(74, 222, 128, 0.85), inset 0 0 14px rgba(74, 222, 128, 0.35); }
+            75% { border-color: #22d3ee; box-shadow: 0 0 26px rgba(34, 211, 238, 0.9), inset 0 0 16px rgba(34, 211, 238, 0.4); }
+            100% { border-color: #f472b6; box-shadow: 0 0 22px rgba(244, 114, 182, 0.85), inset 0 0 14px rgba(244, 114, 182, 0.35); }
+        }
+        .card-aura-ssr {
+            background: linear-gradient(135deg, rgba(80, 7, 36, 0.9), rgba(15, 23, 42, 0.92), rgba(8, 51, 68, 0.9)) !important;
+            animation: rainbowGlow 1.6s linear infinite !important;
+        }
+        @keyframes goldGlow {
+            0%, 100% { border-color: #fbbf24; box-shadow: 0 0 20px rgba(251, 191, 36, 0.75), inset 0 0 12px rgba(251, 191, 36, 0.28); }
+            50% { border-color: #fef08a; box-shadow: 0 0 28px rgba(254, 240, 138, 0.95), inset 0 0 18px rgba(254, 240, 138, 0.45); }
+        }
+        .card-aura-gold {
+            background: linear-gradient(135deg, rgba(69, 26, 3, 0.92), rgba(15, 23, 42, 0.95)) !important;
+            animation: goldGlow 1.4s ease-in-out infinite !important;
+        }
+        .card-aura-boost {
+            box-shadow: 0 0 16px rgba(34, 211, 238, 0.55), inset 0 0 10px rgba(34, 211, 238, 0.2);
+        }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col justify-between relative selection:bg-pink-500 selection:text-white">
+
+    <!-- 下から迫り上がるネオン制限時間ゲージ -->
+    <div id="lava-container" class="hidden">
+        <div id="lava-line"></div>
+    </div>
+
+    <!-- フローティングテキスト表示レイヤー -->
+    <div id="fx-layer" class="fixed inset-0 pointer-events-none z-50 overflow-hidden"></div>
+
+    <!-- ヘッダー -->
+    <header class="relative z-20 w-full max-w-2xl mx-auto px-3 pt-2.5 pb-1 flex items-center justify-between gap-2">
+        <div class="flex items-center gap-2.5">
+            <div class="w-10 h-10 rounded-2xl bg-gradient-to-br from-emerald-400 via-cyan-500 to-indigo-600 flex items-center justify-center shadow-lg shadow-cyan-500/30 font-black text-lg text-slate-950">
+                10
+            </div>
+            <div>
+                <div class="flex items-center gap-2">
+                    <h1 class="font-black text-base sm:text-lg tracking-wider text-white">MAKE 10</h1>
+                    <span id="mode-badge" class="text-[10px] font-black px-2 py-0.5 rounded-full bg-emerald-950/90 text-emerald-300 border border-emerald-500/40">
+                        スコアモード
+                    </span>
+                </div>
+                <p class="text-[10px] text-slate-400 hidden sm:block">4つの数字と四則演算で「10」を作るパズル</p>
+            </div>
+        </div>
+
+        <div class="flex items-center gap-1.5">
+            <button id="btn-quit" class="px-2.5 h-9 rounded-xl bg-rose-950/90 hover:bg-rose-900 border border-rose-500/50 text-rose-200 font-black text-xs flex items-center gap-1 transition" title="タイトルへ戻る">
+                <i class="fa-solid fa-right-from-bracket"></i> <span class="hidden sm:inline">やめる</span>
+            </button>
+            <button id="btn-pause" class="px-2.5 h-9 rounded-xl bg-slate-800/90 hover:bg-slate-700 border border-slate-700 text-slate-200 font-black text-xs flex items-center gap-1 transition" title="一時停止">
+                <i class="fa-solid fa-pause"></i> <span class="hidden sm:inline">一時停止</span>
+            </button>
+            <button id="btn-records" class="px-2.5 h-9 rounded-xl bg-amber-950/90 hover:bg-amber-900 border border-amber-500/50 text-amber-300 font-black text-xs flex items-center gap-1 transition" title="歴代記録">
+                <i class="fa-solid fa-trophy"></i> <span class="hidden sm:inline">記録</span>
+            </button>
+            <button id="btn-help" class="w-9 h-9 rounded-xl bg-slate-800/90 hover:bg-slate-700 border border-slate-700 text-slate-200 flex items-center justify-center transition" title="遊び方">
+                <i class="fa-solid fa-question text-sm"></i>
+            </button>
+            <button id="btn-bgm" class="w-9 h-9 rounded-xl bg-slate-800/90 hover:bg-slate-700 border border-slate-700 text-emerald-400 flex items-center justify-center transition" title="BGM ON/OFF">
+                <i id="icon-bgm" class="fa-solid fa-music text-sm"></i>
+            </button>
+            <button id="btn-sound" class="w-9 h-9 rounded-xl bg-slate-800/90 hover:bg-slate-700 border border-slate-700 text-amber-400 flex items-center justify-center transition" title="効果音切替">
+                <i id="icon-sound" class="fa-solid fa-volume-high text-sm"></i>
+            </button>
+        </div>
+    </header>
+
+    <!-- メインコンテンツ -->
+    <main class="relative z-20 flex-1 w-full max-w-2xl mx-auto px-3 py-1.5 flex flex-col justify-between gap-2">
+
+        <!-- ステータス＆スコアボード -->
+        <section class="bg-slate-900/90 border border-slate-800 rounded-2xl p-2.5 shadow-xl backdrop-blur-md">
+            <div class="flex flex-wrap items-center justify-between gap-2 mb-2">
+                <!-- 難易度切替 -->
+                <div class="inline-flex bg-slate-950 p-1 rounded-xl border border-slate-800">
+                    <button id="diff-normal" class="px-2.5 py-1 rounded-lg text-xs font-black transition bg-emerald-600 text-white shadow">
+                        ノーマル(整数)
+                    </button>
+                    <button id="diff-hard" class="px-2.5 py-1 rounded-lg text-xs font-black transition text-slate-400 hover:text-slate-200">
+                        ハード(分数あり)
+                    </button>
+                </div>
+
+                <!-- 歴代最大一撃 ＆ プレイヤー名 ＆ コイン -->
+                <div class="flex flex-wrap items-center gap-1.5">
+                    <div class="px-2.5 py-1 rounded-full bg-indigo-950/90 border border-indigo-500/40 text-[11px] font-black text-indigo-200 flex items-center gap-1">
+                        <i class="fa-solid fa-user text-indigo-400"></i> <span id="stat-player-name">ゲスト</span>
+                    </div>
+                    <div class="px-2.5 py-1 rounded-full bg-amber-950/80 border border-amber-500/40 text-[11px] font-black text-amber-300 flex items-center gap-1">
+                        <i class="fa-solid fa-crown text-amber-400"></i> 歴代最大: <span id="stat-alltime-max">0ダメージ</span>
+                    </div>
+                    <div class="px-2.5 py-1 rounded-full bg-slate-950 border border-amber-500/40 text-xs font-black text-amber-300 flex items-center gap-1">
+                        🪙 <span id="stat-coins">500</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 4連メトリクス -->
+            <div class="grid grid-cols-2 sm:grid-cols-4 gap-2 text-center">
+                <div class="bg-slate-950/90 border border-pink-500/30 rounded-xl p-2">
+                    <div class="text-[10px] font-black text-pink-400">💥 今回最大一撃</div>
+                    <div id="stat-max-hit" class="text-xs sm:text-sm font-black text-pink-300 truncate mt-0.5">0ダメージ</div>
+                </div>
+                <div class="bg-slate-950/90 border border-slate-800 rounded-xl p-2">
+                    <div class="text-[10px] font-black text-slate-400">TOTAL DAMAGE</div>
+                    <div class="mt-0.5 flex items-baseline justify-center gap-1">
+                        <span id="stat-total-dmg" class="text-xs sm:text-sm font-black text-white truncate">0ダメージ</span>
+                        <span id="stat-score" class="text-[10px] text-slate-400 font-bold">(0問)</span>
+                    </div>
+                </div>
+                <div class="bg-slate-950/90 border border-slate-800 rounded-xl p-2">
+                    <div class="text-[10px] font-black text-slate-400">TIME (残り時間)</div>
+                    <div id="stat-time" class="text-sm sm:text-base font-black text-emerald-400 mt-0.5">45.0秒</div>
+                </div>
+                <div class="bg-slate-950/90 border border-slate-800 rounded-xl p-2">
+                    <div class="text-[10px] font-black text-slate-400">COMBO</div>
+                    <div id="stat-combo" class="text-sm sm:text-base font-black text-amber-400 mt-0.5">0 連勝</div>
+                </div>
+            </div>
+        </section>
+
+        <!-- パズル盤面エリア -->
+        <div class="flex flex-col gap-2.5 my-auto py-1">
+            <!-- ステータスメッセージバー -->
+            <div id="status-message" class="w-full py-2.5 px-4 rounded-2xl bg-slate-900/95 border border-slate-800 text-center font-black text-xs sm:text-sm text-slate-100 shadow-inner min-h-[42px] flex items-center justify-center">
+                計算に使う数字カードをタップ！
+            </div>
+
+            <!-- 数字カード 4枚 -->
+            <div id="cards-container" class="grid grid-cols-4 gap-2 sm:gap-3.5 my-1">
+                <!-- JSで描画 -->
+            </div>
+
+            <!-- 四則演算ボタン（＋ − × ÷） -->
+            <div class="grid grid-cols-4 gap-2 sm:gap-3 max-w-lg mx-auto w-full">
+                <button data-op="+" class="op-btn h-12 sm:h-14 rounded-2xl bg-slate-800/95 hover:bg-slate-700 border-2 border-slate-700 text-amber-400 font-black text-2xl flex items-center justify-center shadow-lg">
+                    ＋
+                </button>
+                <button data-op="-" class="op-btn h-12 sm:h-14 rounded-2xl bg-slate-800/95 hover:bg-slate-700 border-2 border-slate-700 text-amber-400 font-black text-2xl flex items-center justify-center shadow-lg">
+                    −
+                </button>
+                <button data-op="*" class="op-btn h-12 sm:h-14 rounded-2xl bg-slate-800/95 hover:bg-slate-700 border-2 border-slate-700 text-amber-400 font-black text-2xl flex items-center justify-center shadow-lg">
+                    ×
+                </button>
+                <button data-op="/" class="op-btn h-12 sm:h-14 rounded-2xl bg-slate-800/95 hover:bg-slate-700 border-2 border-slate-700 text-amber-400 font-black text-2xl flex items-center justify-center shadow-lg">
+                    ÷
+                </button>
+            </div>
+
+            <!-- パズル補助ボタン（1手戻す / 最初に戻す / 無料ヒント / パス） -->
+            <div class="grid grid-cols-4 gap-2 max-w-lg mx-auto w-full pt-0.5">
+                <button id="btn-undo" class="py-2 px-2 rounded-xl bg-slate-800/90 hover:bg-slate-700 border border-slate-700 text-slate-200 font-bold text-xs flex items-center justify-center gap-1 transition disabled:opacity-40 disabled:pointer-events-none">
+                    <i class="fa-solid fa-rotate-left"></i> 1手戻す
+                </button>
+                <button id="btn-reset" class="py-2 px-2 rounded-xl bg-slate-800/90 hover:bg-slate-700 border border-slate-700 text-slate-200 font-bold text-xs flex items-center justify-center gap-1 transition disabled:opacity-40 disabled:pointer-events-none">
+                    <i class="fa-solid fa-arrows-rotate"></i> 最初に戻す
+                </button>
+                <button id="btn-free-hint" class="py-2 px-2 rounded-xl bg-amber-950/90 hover:bg-amber-900 border border-amber-500/70 text-amber-300 font-black text-xs flex items-center justify-center gap-1 transition shadow">
+                    <i class="fa-solid fa-lightbulb text-amber-400"></i> ヒント(無料)
+                </button>
+                <button id="btn-skip" class="py-2 px-2 rounded-xl bg-slate-800/90 hover:bg-slate-700 border border-slate-700 text-slate-300 font-bold text-xs flex items-center justify-center gap-1 transition">
+                    <i class="fa-solid fa-forward"></i> パス(次へ)
+                </button>
+            </div>
+        </div>
+
+        <!-- サポートアイテム欄（SSRオーラ＆カラーガチャを復活！） -->
+        <div id="support-panel" class="bg-slate-900/95 border border-indigo-500/40 rounded-2xl p-2.5 shadow-xl backdrop-blur-md transition-all duration-300">
+            <div class="flex items-center justify-between mb-1.5 px-1">
+                <span class="text-[11px] font-black text-indigo-300 flex items-center gap-1.5">
+                    <i class="fa-solid fa-bolt text-amber-400"></i> サポートアイテム（コイン消費）
+                </span>
+                <span id="aura-badge" class="text-[11px] font-black px-2.5 py-0.5 rounded-full bg-slate-800 text-slate-300 border border-slate-700">
+                    オーラ倍率: ×1.0 (通常)
+                </span>
+            </div>
+            <div class="grid grid-cols-3 gap-2">
+                <button id="btn-laser" class="py-2 px-2 rounded-xl bg-gradient-to-r from-rose-600 to-pink-600 hover:from-rose-500 hover:to-pink-500 text-white font-black text-xs shadow-lg border border-rose-300/40 flex flex-col items-center justify-center gap-0.5 transition active:scale-95">
+                    <div class="flex items-center gap-1"><i class="fa-solid fa-wand-magic-sparkles"></i> 強制10レーザー</div>
+                    <span class="text-[10px] bg-black/30 px-2 py-0.5 rounded-full text-amber-300">🪙 150</span>
+                </button>
+                <button id="btn-freeze" class="py-2 px-2 rounded-xl bg-gradient-to-r from-sky-600 to-cyan-600 hover:from-sky-500 hover:to-cyan-500 text-white font-black text-xs shadow-lg border border-sky-300/40 flex flex-col items-center justify-center gap-0.5 transition active:scale-95">
+                    <div class="flex items-center gap-1"><i class="fa-solid fa-snowflake"></i> 時間凍結+15秒</div>
+                    <span class="text-[10px] bg-black/30 px-2 py-0.5 rounded-full text-amber-300">🪙 100</span>
+                </button>
+                <button id="btn-gacha" class="py-2 px-2 rounded-xl bg-gradient-to-r from-amber-500 via-orange-500 to-fuchsia-600 hover:from-amber-400 hover:to-fuchsia-500 text-white font-black text-xs shadow-lg border border-amber-300/50 flex flex-col items-center justify-center gap-0.5 transition active:scale-95">
+                    <div class="flex items-center gap-1"><i class="fa-solid fa-gem"></i> SSRカラーガチャ</div>
+                    <span class="text-[10px] bg-black/30 px-2 py-0.5 rounded-full text-amber-200">🪙 80</span>
+                </button>
+            </div>
+        </div>
+    </main>
+
+    <!-- 1. タイトル画面モーダル -->
+    <div id="modal-title" class="fixed inset-0 z-50 bg-slate-950/95 backdrop-blur-md flex items-center justify-center p-4">
+        <div class="w-full max-w-md bg-slate-900 border-2 border-indigo-500/50 rounded-3xl p-6 shadow-2xl text-center">
+            <div class="w-16 h-16 mx-auto mb-3 rounded-2xl bg-gradient-to-br from-emerald-400 via-cyan-500 to-indigo-600 flex items-center justify-center shadow-lg shadow-cyan-500/40 font-black text-3xl text-slate-950">
+                10
+            </div>
+            <h2 class="text-2xl sm:text-3xl font-black tracking-wider text-white">MAKE 10</h2>
+            <p class="text-xs text-slate-400 mt-1 mb-4">4つの数字を組み合わせて「10」を作る算数パズル！</p>
+
+            <div class="text-left mb-3.5">
+                <label for="input-player-name" class="text-xs font-black text-slate-300 block mb-1">👤 プレイヤー名（ランキングに記録されます）</label>
+                <input id="input-player-name" type="text" value="" placeholder="なまえを入力（空欄でもOK）" maxlength="12" class="w-full px-3.5 py-2 rounded-xl bg-slate-950 border border-slate-700 text-white font-bold text-sm focus:outline-none focus:border-cyan-400 placeholder:text-slate-600">
+            </div>
+
+            <!-- 難易度選択 -->
+            <div class="text-left mb-4">
+                <label class="text-xs font-black text-slate-300 block mb-1.5">🎯 難易度を選択</label>
+                <div class="grid grid-cols-2 gap-2">
+                    <button id="title-diff-normal" class="py-2.5 px-3 rounded-xl font-black text-xs border-2 border-emerald-400 bg-emerald-950/80 text-emerald-200 transition">
+                        🟢 ノーマル（整数のみ）
+                    </button>
+                    <button id="title-diff-hard" class="py-2.5 px-3 rounded-xl font-black text-xs border border-slate-700 bg-slate-800/80 text-slate-400 transition">
+                        🔥 ハード（分数あり）
+                    </button>
+                </div>
+            </div>
+
+            <!-- 制限時間選択 -->
+            <div class="text-left mb-5">
+                <label class="text-xs font-black text-slate-300 block mb-1.5">⏱️ スコアモードの制限時間</label>
+                <div class="grid grid-cols-3 gap-2">
+                    <button data-time="45" class="title-time-btn py-2 px-2 rounded-xl font-black text-xs border-2 border-cyan-400 bg-cyan-950/80 text-cyan-200 transition">
+                        🐢 45秒<br><span class="text-[10px] font-normal">じっくり</span>
+                    </button>
+                    <button data-time="25" class="title-time-btn py-2 px-2 rounded-xl font-black text-xs border border-slate-700 bg-slate-800/80 text-slate-400 transition">
+                        ⚡ 25秒<br><span class="text-[10px] font-normal">ふつう</span>
+                    </button>
+                    <button data-time="15" class="title-time-btn py-2 px-2 rounded-xl font-black text-xs border border-slate-700 bg-slate-800/80 text-slate-400 transition">
+                        🚀 15秒<br><span class="text-[10px] font-normal">ガチ速</span>
+                    </button>
+                </div>
+            </div>
+
+            <!-- ゲームスタートボタン -->
+            <div class="flex flex-col gap-2.5">
+                <button id="btn-start-score" class="w-full py-3.5 rounded-2xl bg-gradient-to-r from-emerald-500 via-teal-500 to-cyan-500 hover:from-emerald-400 hover:to-cyan-400 text-slate-950 font-black text-sm shadow-lg shadow-cyan-500/30 transition active:scale-95">
+                    🔥 スコアモードで始める（時間制限＆ドパ感！）
+                </button>
+                <button id="btn-start-endless" class="w-full py-3 rounded-2xl bg-slate-800 hover:bg-slate-700 border border-slate-600 text-slate-200 font-black text-xs transition active:scale-95">
+                    ☕ 無限モードで始める（時間無制限でじっくり練習）
+                </button>
+            </div>
+
+            <div class="grid grid-cols-2 gap-2 mt-4 pt-4 border-t border-slate-800">
+                <button id="btn-title-records" class="py-2 rounded-xl bg-amber-950/60 hover:bg-amber-900/80 border border-amber-500/40 text-amber-300 font-bold text-xs">
+                    🏆 歴代記録を見る
+                </button>
+                <button id="btn-title-help" class="py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold text-xs">
+                    ❓ 遊び方・ルール
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 2. 一時停止モーダル -->
+    <div id="modal-pause" class="fixed inset-0 z-50 bg-slate-950/90 backdrop-blur-md hidden items-center justify-center p-4">
+        <div class="w-full max-w-sm bg-slate-900 border border-slate-700 rounded-3xl p-6 text-center shadow-2xl">
+            <h3 class="text-xl font-black text-white mb-2">⏸️ 一時停止中</h3>
+            <p class="text-xs text-slate-400 mb-5">タイマーとネオンゲージはストップしています</p>
+            <div class="flex flex-col gap-2.5">
+                <button id="btn-resume" class="w-full py-3 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-black text-sm">
+                    ▶️ ゲームを再開する
+                </button>
+                <button id="btn-pause-records" class="w-full py-2.5 rounded-xl bg-amber-950/80 hover:bg-amber-900 border border-amber-500/40 text-amber-300 font-black text-xs">
+                    🏆 歴代記録を確認する
+                </button>
+                <button id="btn-pause-quit" class="w-full py-2.5 rounded-xl bg-rose-950/80 hover:bg-rose-900 border border-rose-500/40 text-rose-200 font-bold text-xs">
+                    🏠 タイトル画面へ戻る
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 2.5 20連勝ごとの区切り（続ける / やめる）モーダル -->
+    <div id="modal-break" class="fixed inset-0 z-50 bg-slate-950/90 backdrop-blur-md hidden items-center justify-center p-4">
+        <div class="w-full max-w-sm bg-slate-900 border-2 border-amber-400/70 rounded-3xl p-6 text-center shadow-2xl">
+            <div class="text-4xl mb-1">🎉</div>
+            <h3 id="break-title" class="text-2xl font-black text-amber-300 mb-1">20連勝達成！！</h3>
+            <p class="text-xs text-slate-300 mb-4">すごい集中力！ここでひと息つく？それともさらに記録を伸ばす？</p>
+            <div class="bg-slate-950 border border-slate-800 rounded-2xl p-3 mb-5 text-xs">
+                <div class="text-slate-400">ここまでの累計スコア</div>
+                <div id="break-total-dmg" class="text-base font-black text-pink-300 mt-0.5">0ダメージ</div>
+            </div>
+            <div class="flex flex-col gap-2.5">
+                <button id="btn-break-continue" class="w-full py-3 rounded-xl bg-gradient-to-r from-emerald-500 to-cyan-500 hover:from-emerald-400 hover:to-cyan-400 text-slate-950 font-black text-sm shadow-lg">
+                    🔥 続ける（さらに限界突破！）
+                </button>
+                <button id="btn-break-quit" class="w-full py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-200 font-bold text-xs">
+                    🏠 区切ってやめる（タイトルへ保存して戻る）
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 3. タイムアップ確認＆リトライ選択モーダル -->
+    <div id="modal-timeup" class="fixed inset-0 z-50 bg-slate-950/90 backdrop-blur-md hidden items-center justify-center p-4">
+        <div class="w-full max-w-md bg-slate-900 border-2 border-rose-500/60 rounded-3xl p-6 text-center shadow-2xl">
+            <div class="text-3xl mb-1">⏰</div>
+            <h3 class="text-xl font-black text-rose-400 mb-1">TIME UP!（時間切れ）</h3>
+            <p class="text-xs text-slate-300 mb-3">今回の問題：<span id="timeup-numbers" class="font-black text-white text-sm"></span></p>
+
+            <!-- 解答例を隠しておき、ボタンで開く -->
+            <div class="mb-5">
+                <button id="btn-reveal-answer" class="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 border border-amber-500/40 text-amber-300 font-black text-xs transition">
+                    🔑 正解例を見る
+                </button>
+                <div id="timeup-answer-box" class="hidden mt-2 p-3 rounded-xl bg-slate-950 border border-emerald-500/40 text-emerald-300 font-black text-sm">
+                    正解例: <span id="timeup-solution"></span> = 10
+                </div>
+            </div>
+
+            <div class="flex flex-col sm:flex-row gap-2.5">
+                <button id="btn-timeup-retry" class="flex-1 py-3 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-black text-xs sm:text-sm shadow-lg">
+                    🔄 同じ問題にリトライ！
+                </button>
+                <button id="btn-timeup-next" class="flex-1 py-3 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-black text-xs sm:text-sm shadow-lg">
+                    ➡️ OK（次の問題へ）
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 4. 歴代記録モーダル -->
+    <div id="modal-records" class="fixed inset-0 z-50 bg-slate-950/90 backdrop-blur-md hidden items-center justify-center p-4">
+        <div class="w-full max-w-md bg-slate-900 border border-amber-500/50 rounded-3xl p-5 shadow-2xl">
+            <div class="flex items-center justify-between mb-4">
+                <h3 class="text-lg font-black text-amber-300 flex items-center gap-2">
+                    <i class="fa-solid fa-trophy"></i> 歴代ハイスコア記録
+                </h3>
+                <button id="btn-close-records" class="w-8 h-8 rounded-lg bg-slate-800 text-slate-300 hover:bg-slate-700">✕</button>
+            </div>
+
+            <div class="grid grid-cols-2 gap-2.5 mb-4">
+                <div class="bg-slate-950 border border-amber-500/30 rounded-xl p-3">
+                    <div class="text-[10px] font-bold text-amber-400">👑 歴代最大一撃</div>
+                    <div id="rec-max-single" class="text-sm sm:text-base font-black text-white mt-0.5">0ダメージ</div>
+                    <div id="rec-max-formula" class="text-[11px] text-emerald-400 font-bold mt-1 truncate">記録なし</div>
+                    <div id="rec-max-player" class="text-[10px] text-indigo-300 font-bold mt-0.5 truncate">👤 -</div>
+                </div>
+                <div class="bg-slate-950 border border-slate-800 rounded-xl p-3">
+                    <div class="text-[10px] font-bold text-slate-400">🔥 累計クリア / 最大連勝</div>
+                    <div id="rec-total-solved" class="text-sm sm:text-base font-black text-white mt-0.5">0問クリア</div>
+                    <div id="rec-max-combo" class="text-[11px] text-amber-400 font-bold mt-1">最大 0 連勝</div>
+                </div>
+            </div>
+
+            <div class="text-xs font-black text-slate-300 mb-2">💥 歴代一撃ダメージ TOP 5</div>
+            <div id="rec-ranking-list" class="space-y-1.5 max-h-48 overflow-y-auto pr-1">
+                <!-- JSでランキング描画 -->
+            </div>
+
+            <button id="btn-close-records-bottom" class="mt-4 w-full py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-white font-black text-xs">
+                閉じる
+            </button>
+        </div>
+    </div>
+
+    <!-- 5. 遊び方モーダル -->
+    <div id="modal-help" class="fixed inset-0 z-50 bg-slate-950/90 backdrop-blur-md hidden items-center justify-center p-4">
+        <div class="w-full max-w-md bg-slate-900 border border-slate-700 rounded-3xl p-5 shadow-2xl">
+            <div class="flex items-center justify-between mb-3">
+                <h3 class="text-lg font-black text-white">❓ 遊び方・高得点のコツ</h3>
+                <button id="btn-close-help" class="w-8 h-8 rounded-lg bg-slate-800 text-slate-300 hover:bg-slate-700">✕</button>
+            </div>
+            <div class="space-y-2.5 text-xs text-slate-300 leading-relaxed">
+                <div class="bg-slate-950 p-3 rounded-xl border border-slate-800">
+                    <div class="font-black text-cyan-400 mb-1">① 基本ルール（連続計算対応！）</div>
+                    4枚の数字カードを「＋ − × ÷」で合体させ、最後の1枚を<strong>「10」</strong>にすればクリア！<br>
+                    計算してできたカードは<strong>そのまま自動選択</strong>されるので、続けて演算ボタンを押すだけでサクサク連続計算できます！
+                </div>
+                <div class="bg-slate-950 p-3 rounded-xl border border-slate-800">
+                    <div class="font-black text-pink-400 mb-1">② ドパ感MAX！インフレダメージの秘密</div>
+                    ・計算途中で<strong>大きな数字（掛け算など）</strong>を作るほど基礎ダメージが爆増！<br>
+                    ・計算途中で<strong>分数（割り算）</strong>を経由して10を作ると<strong>ダメージ10倍</strong>！<br>
+                    ・連続正解（COMBO）が続くほどダメージが指数関数的にインフレします！
+                </div>
+                <div class="bg-slate-950 p-3 rounded-xl border border-slate-800">
+                    <div class="font-black text-emerald-400 mb-1">💡 無料ヒント＆SSRカラーガチャ(1問限定)＆救済レーザー</div>
+                    わからない時は<strong>「ヒント(無料)」</strong>を押せば、次に作るべき計算をコストなしで教えてくれます！<br>
+                    コインが貯まったら<strong>「SSRカラーガチャ（🪙80）」</strong>で<strong>この1問のダメージ倍率を最大×5.0倍（カードが虹色に発光！）</strong>に強化したり、<strong>「強制10レーザー（🪙150）」</strong>で一撃突破も可能！
+                </div>
+            </div>
+            <button id="btn-close-help-bottom" class="mt-4 w-full py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-black text-xs transition">
+                わかった！
+            </button>
+        </div>
+    </div>
+
+    <script>
+        // ==========================================
+        // 1. 正確な分数クラス（浮動小数点誤差ゼロ）
+        // ==========================================
+        function gcd(a, b) {
+            a = Math.abs(a);
+            b = Math.abs(b);
+            while (b !== 0) {
+                const t = b;
+                b = a % b;
+                a = t;
+            }
+            return a || 1;
+        }
+
+        class Frac {
+            constructor(n, d = 1) {
+                if (d < 0) { n = -n; d = -d; }
+                const g = gcd(n, d);
+                this.n = n / g;
+                this.d = d / g;
+            }
+            add(other) { return new Frac(this.n * other.d + other.n * this.d, this.d * other.d); }
+            sub(other) { return new Frac(this.n * other.d - other.n * this.d, this.d * other.d); }
+            mul(other) { return new Frac(this.n * other.n, this.d * other.d); }
+            div(other) {
+                if (other.n === 0) return null;
+                return new Frac(this.n * other.d, this.d * other.n);
+            }
+            isTen() { return this.n === 10 && this.d === 1; }
+            isInt() { return this.d === 1; }
+            toNumber() { return this.n / this.d; }
+            toString() { return this.d === 1 ? `${this.n}` : `${this.n}/${this.d}`; }
+        }
+
+        // ==========================================
+        // 2. Make 10 ソルバー（手順ステップ付き）
+        // ==========================================
+        function solveMake10(items, requireIntegerSteps = false) {
+            if (items.length === 1) {
+                if (items[0].val.isTen()) {
+                    return { expr: items[0].expr, steps: [] };
+                }
+                return null;
+            }
+
+            const ops = [
+                { sym: '+', fn: (a, b) => a.add(b) },
+                { sym: '-', fn: (a, b) => a.sub(b) },
+                { sym: '×', fn: (a, b) => a.mul(b) },
+                { sym: '÷', fn: (a, b) => a.div(b) }
+            ];
+
+            for (let i = 0; i < items.length; i++) {
+                for (let j = 0; j < items.length; j++) {
+                    if (i === j) continue;
+                    const a = items[i];
+                    const b = items[j];
+                    const rest = items.filter((_, idx) => idx !== i && idx !== j);
+
+                    for (const op of ops) {
+                        if ((op.sym === '+' || op.sym === '×') && i > j) continue;
+                        const resVal = op.fn(a.val, b.val);
+                        if (!resVal) continue;
+                        if (resVal.n < 0) continue; // 小学生向けに負の数は除外
+                        if (requireIntegerSteps && !resVal.isInt()) continue;
+
+                        const stepStr = `${a.val.toString()} ${op.sym} ${b.val.toString()} = ${resVal.toString()}`;
+                        const nextExpr = items.length === 2 ? `${a.expr} ${op.sym} ${b.expr}` : `(${a.expr} ${op.sym} ${b.expr})`;
+                        const subResult = solveMake10([{ val: resVal, expr: nextExpr }, ...rest], requireIntegerSteps);
+                        if (subResult) {
+                            return {
+                                expr: subResult.expr,
+                                steps: [stepStr, ...subResult.steps]
+                            };
+                        }
+                    }
+                }
+            }
+            return null;
+        }
+
+        // ==========================================
+        // 3. サウンド＆シンプルBGMエンジン（Web Audio API）
+        // ==========================================
+        const Sound = {
+            enabled: true,
+            bgmEnabled: true,
+            ctx: null,
+            bgmTimer: null,
+            bgmStep: 0,
+            init() {
+                if (!this.ctx) {
+                    const AudioCtx = window.AudioContext || window.webkitAudioContext;
+                    if (AudioCtx) this.ctx = new AudioCtx();
+                }
+                if (this.ctx && this.ctx.state === 'suspended') {
+                    this.ctx.resume();
+                }
+            },
+            startBGM() {
+                this.stopBGM();
+                if (!this.bgmEnabled) return;
+                this.init();
+                const melody = [
+                    523.25, 659.25, 783.99, 659.25,
+                    587.33, 698.46, 880.00, 698.46,
+                    493.88, 587.33, 783.99, 587.33,
+                    523.25, 659.25, 1046.50, 783.99
+                ];
+                const bass = [
+                    130.81, 130.81, 146.83, 146.83,
+                    123.47, 123.47, 130.81, 130.81
+                ];
+                this.bgmTimer = setInterval(() => {
+                    if (!this.bgmEnabled || !State.isPlaying || State.isPaused) return;
+                    try {
+                        if (!this.ctx || this.ctx.state === 'suspended') return;
+                        const now = this.ctx.currentTime;
+                        const note = melody[this.bgmStep % melody.length];
+                        const bassNote = bass[Math.floor(this.bgmStep / 2) % bass.length];
+
+                        const osc = this.ctx.createOscillator();
+                        const gain = this.ctx.createGain();
+                        osc.type = 'triangle';
+                        osc.frequency.setValueAtTime(note, now);
+                        gain.gain.setValueAtTime(0.035, now);
+                        gain.gain.exponentialRampToValueAtTime(0.002, now + 0.16);
+                        osc.connect(gain);
+                        gain.connect(this.ctx.destination);
+                        osc.start(now);
+                        osc.stop(now + 0.16);
+
+                        if (this.bgmStep % 2 === 0) {
+                            const bOsc = this.ctx.createOscillator();
+                            const bGain = this.ctx.createGain();
+                            bOsc.type = 'sine';
+                            bOsc.frequency.setValueAtTime(bassNote, now);
+                            bGain.gain.setValueAtTime(0.045, now);
+                            bGain.gain.exponentialRampToValueAtTime(0.002, now + 0.28);
+                            bOsc.connect(bGain);
+                            bGain.connect(this.ctx.destination);
+                            bOsc.start(now);
+                            bOsc.stop(now + 0.28);
+                        }
+
+                        this.bgmStep++;
+                    } catch (e) {}
+                }, 190);
+            },
+            stopBGM() {
+                if (this.bgmTimer) {
+                    clearInterval(this.bgmTimer);
+                    this.bgmTimer = null;
+                }
+            },
+            play(type) {
+                if (!this.enabled) return;
+                try {
+                    this.init();
+                    if (!this.ctx) return;
+                    const now = this.ctx.currentTime;
+                    const osc = this.ctx.createOscillator();
+                    const gain = this.ctx.createGain();
+                    osc.connect(gain);
+                    gain.connect(this.ctx.destination);
+
+                    if (type === 'tap') {
+                        osc.type = 'sine';
+                        osc.frequency.setValueAtTime(520, now);
+                        osc.frequency.exponentialRampToValueAtTime(680, now + 0.06);
+                        gain.gain.setValueAtTime(0.12, now);
+                        gain.gain.exponentialRampToValueAtTime(0.01, now + 0.06);
+                        osc.start(now);
+                        osc.stop(now + 0.06);
+                    } else if (type === 'merge') {
+                        osc.type = 'triangle';
+                        osc.frequency.setValueAtTime(400, now);
+                        osc.frequency.exponentialRampToValueAtTime(760, now + 0.11);
+                        gain.gain.setValueAtTime(0.18, now);
+                        gain.gain.exponentialRampToValueAtTime(0.01, now + 0.11);
+                        osc.start(now);
+                        osc.stop(now + 0.11);
+                    } else if (type === 'clear') {
+                        const notes = [523.25, 659.25, 783.99, 1046.5];
+                        notes.forEach((freq, i) => {
+                            const o = this.ctx.createOscillator();
+                            const g = this.ctx.createGain();
+                            o.type = 'triangle';
+                            o.connect(g);
+                            g.connect(this.ctx.destination);
+                            o.frequency.setValueAtTime(freq, now + i * 0.055);
+                            g.gain.setValueAtTime(0.2, now + i * 0.055);
+                            g.gain.exponentialRampToValueAtTime(0.008, now + i * 0.055 + 0.25);
+                            o.start(now + i * 0.055);
+                            o.stop(now + i * 0.055 + 0.25);
+                        });
+                    } else if (type === 'gacha') {
+                        const notes = [440, 554.37, 659.25, 880, 1108.73];
+                        notes.forEach((freq, i) => {
+                            const o = this.ctx.createOscillator();
+                            const g = this.ctx.createGain();
+                            o.type = 'sine';
+                            o.connect(g);
+                            g.connect(this.ctx.destination);
+                            o.frequency.setValueAtTime(freq, now + i * 0.045);
+                            g.gain.setValueAtTime(0.18, now + i * 0.045);
+                            g.gain.exponentialRampToValueAtTime(0.008, now + i * 0.045 + 0.22);
+                            o.start(now + i * 0.045);
+                            o.stop(now + i * 0.045 + 0.22);
+                        });
+                    } else if (type === 'yay') {
+                        // 「イェーイ！」風の明るいファンファーレ＆歓声シンセ合成
+                        const fanfare = [523.25, 659.25, 783.99, 1046.50, 1318.51, 1567.98];
+                        fanfare.forEach((freq, i) => {
+                            const o = this.ctx.createOscillator();
+                            const g = this.ctx.createGain();
+                            o.type = 'triangle';
+                            o.connect(g);
+                            g.connect(this.ctx.destination);
+                            o.frequency.setValueAtTime(freq, now + i * 0.045);
+                            g.gain.setValueAtTime(0.24, now + i * 0.045);
+                            g.gain.exponentialRampToValueAtTime(0.008, now + i * 0.045 + 0.35);
+                            o.start(now + i * 0.045);
+                            o.stop(now + i * 0.045 + 0.35);
+                        });
+                        // スライドアップする歓声フォルマント風トーン
+                        [700, 1150, 1450].forEach((baseFreq) => {
+                            const vOsc = this.ctx.createOscillator();
+                            const vGain = this.ctx.createGain();
+                            vOsc.type = 'sawtooth';
+                            vOsc.connect(vGain);
+                            vGain.connect(this.ctx.destination);
+                            vOsc.frequency.setValueAtTime(baseFreq * 0.85, now + 0.08);
+                            vOsc.frequency.exponentialRampToValueAtTime(baseFreq * 1.25, now + 0.28);
+                            vOsc.frequency.exponentialRampToValueAtTime(baseFreq * 1.15, now + 0.65);
+                            vGain.gain.setValueAtTime(0.06, now + 0.08);
+                            vGain.gain.exponentialRampToValueAtTime(0.001, now + 0.68);
+                            vOsc.start(now + 0.08);
+                            vOsc.stop(now + 0.68);
+                        });
+                    } else if (type === 'laser') {
+                        osc.type = 'sawtooth';
+                        osc.frequency.setValueAtTime(980, now);
+                        osc.frequency.exponentialRampToValueAtTime(180, now + 0.32);
+                        gain.gain.setValueAtTime(0.22, now);
+                        gain.gain.exponentialRampToValueAtTime(0.01, now + 0.32);
+                        osc.start(now);
+                        osc.stop(now + 0.32);
+                    } else if (type === 'wrong') {
+                        osc.type = 'sawtooth';
+                        osc.frequency.setValueAtTime(200, now);
+                        osc.frequency.linearRampToValueAtTime(130, now + 0.22);
+                        gain.gain.setValueAtTime(0.16, now);
+                        gain.gain.exponentialRampToValueAtTime(0.01, now + 0.22);
+                        osc.start(now);
+                        osc.stop(now + 0.22);
+                    }
+                } catch (e) {}
+            }
+        };
+
+        // ==========================================
+        // 4. ネオンカラーテーマ＆SSRオーラ定義
+        // ==========================================
+        const NEON_THEMES = [
+            { name: 'サイバーピンク', body: 'rgba(236, 72, 153, 0.38)', line: '#f472b6', shadow: '0 0 20px #ec4899', border: 'border-pink-500/80' },
+            { name: 'エレクトリックシアン', body: 'rgba(6, 182, 212, 0.38)', line: '#22d3ee', shadow: '0 0 20px #06b6d4', border: 'border-cyan-400/80' },
+            { name: 'ネオンライム', body: 'rgba(132, 204, 22, 0.38)', line: '#a3e635', shadow: '0 0 20px #84cc16', border: 'border-lime-400/80' },
+            { name: 'ハイパーバイオレット', body: 'rgba(139, 92, 246, 0.38)', line: '#a78bfa', shadow: '0 0 20px #8b5cf6', border: 'border-violet-400/80' },
+            { name: 'サンバーストゴールド', body: 'rgba(245, 158, 11, 0.38)', line: '#fbbf24', shadow: '0 0 20px #f59e0b', border: 'border-amber-400/80' },
+            { name: 'クリムゾンレーザー', body: 'rgba(244, 63, 94, 0.42)', line: '#fb7185', shadow: '0 0 20px #f43f5e', border: 'border-rose-400/80' }
+        ];
+
+        const AURA_TIERS = [
+            { name: '翠玉ネオン', mult: 1.5, themeIdx: 2, badgeClass: 'bg-emerald-950 text-emerald-300 border-emerald-400', prob: 0.40 },
+            { name: '蒼天サイバー', mult: 2.0, themeIdx: 1, badgeClass: 'bg-cyan-950 text-cyan-300 border-cyan-400', prob: 0.30 },
+            { name: '黄金サンバースト', mult: 3.0, themeIdx: 4, badgeClass: 'bg-amber-950 text-amber-300 border-amber-400', prob: 0.20 },
+            { name: '🌈 SSR虹神オーラ', mult: 5.0, themeIdx: 0, badgeClass: 'bg-gradient-to-r from-pink-600 via-amber-500 to-cyan-500 text-white border-yellow-200', prob: 0.10 }
+        ];
+
+        // ==========================================
+        // 5. ゲーム状態管理
+        // ==========================================
+        const STORAGE_KEY = 'make10_save_v2';
+
+        const State = {
+            playerName: '',         // 初期値は空欄（未入力時は「ゲスト」として扱う）
+            mode: 'score',          // 'score' | 'endless'
+            difficulty: 'normal',   // 'normal' | 'hard'
+            timeLimit: 45,          // 45 | 25 | 15
+            timeLeft: 45,
+            timerId: null,
+            roundTimeoutId: null,
+            isPlaying: false,
+            isPaused: false,
+            isResolving: false,
+            OpenedRecordsFromPause: false,
+
+            initialNumbers: [1, 2, 3, 4],
+            cards: [],
+            history: [],
+            selectedCardIndex: null,
+            selectedOp: null,
+            hintStep: 0,
+            usedLaserThisRound: false,
+
+            coins: 500,
+            combo: 0,
+            solvedCount: 0,
+            totalDamage: 0,
+            maxSingleHit: 0,
+            themeIndex: 0,
+            auraMultiplier: 1.0,
+            auraName: '通常',
+            auraBadgeClass: 'bg-slate-800 text-slate-300 border-slate-700',
+
+            records: {
+                maxSingle: 0,
+                maxFormula: '記録なし',
+                maxPlayer: 'ゲスト',
+                totalSolved: 0,
+                maxCombo: 0,
+                topHits: []
+            }
+        };
+
+        function getDisplayPlayerName() {
+            const trimmed = (State.playerName || '').trim();
+            return trimmed.length > 0 ? trimmed : 'ゲスト';
+        }
+
+        function loadSavedData() {
+            try {
+                const raw = localStorage.getItem(STORAGE_KEY);
+                if (!raw) return;
+                const data = JSON.parse(raw);
+                if (typeof data.playerName === 'string') {
+                    // 万が一過去に「ドパガキ」が保存されていた場合は空欄にリセット
+                    State.playerName = data.playerName === 'ドパガキ' ? '' : data.playerName;
+                }
+                if (typeof data.coins === 'number' && !isNaN(data.coins)) {
+                    State.coins = data.coins;
+                }
+                if (data.records && typeof data.records === 'object') {
+                    State.records.maxSingle = Number(data.records.maxSingle) || 0;
+                    State.records.maxFormula = data.records.maxFormula || '記録なし';
+                    State.records.maxPlayer = data.records.maxPlayer || 'ゲスト';
+                    State.records.totalSolved = Number(data.records.totalSolved) || 0;
+                    State.records.maxCombo = Number(data.records.maxCombo) || 0;
+                    if (Array.isArray(data.records.topHits)) {
+                        State.records.topHits = data.records.topHits;
+                    }
+                }
+            } catch (e) {}
+        }
+
+        function saveData() {
+            try {
+                const payload = {
+                    playerName: State.playerName,
+                    coins: State.coins,
+                    records: State.records
+                };
+                localStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
+            } catch (e) {}
+        }
+
+        // ==========================================
+        // 6. ダメージ表記フォーマット（ディスガイア風＋カンマ区切り）
+        // ==========================================
+        function formatDamageText(num) {
+            const n = Math.floor(num);
+            if (n >= 1e16) {
+                return `${(n / 1e16).toFixed(2)}京ダメージ`;
+            }
+            if (n >= 1e12) {
+                return `${(n / 1e12).toFixed(2)}兆ダメージ`;
+            }
+            return `${n.toLocaleString('ja-JP')}ダメージ`;
+        }
+
+        function applyNeonTheme() {
+            const theme = NEON_THEMES[State.themeIndex % NEON_THEMES.length];
+            const lavaContainer = document.getElementById('lava-container');
+            const lavaLine = document.getElementById('lava-line');
+            if (lavaContainer && lavaLine) {
+                lavaContainer.style.background = `linear-gradient(180deg, ${theme.body} 0%, rgba(15, 23, 42, 0.9) 100%)`;
+                lavaLine.style.background = theme.line;
+                lavaLine.style.boxShadow = `${theme.shadow}, 0 0 36px ${theme.line}`;
+            }
+        }
+
+        function updateHeaderStats() {
+            const nameEl = document.getElementById('stat-player-name');
+            if (nameEl) nameEl.textContent = getDisplayPlayerName();
+            document.getElementById('stat-coins').textContent = State.coins.toLocaleString('ja-JP');
+            document.getElementById('stat-combo').textContent = `${State.combo} 連勝`;
+            document.getElementById('stat-total-dmg').textContent = formatDamageText(State.totalDamage);
+            document.getElementById('stat-score').textContent = `(${State.solvedCount}問)`;
+            document.getElementById('stat-max-hit').textContent = formatDamageText(State.maxSingleHit);
+            document.getElementById('stat-alltime-max').textContent = formatDamageText(State.records.maxSingle);
+
+            const auraBadge = document.getElementById('aura-badge');
+            if (auraBadge) {
+                const limitNote = State.auraMultiplier > 1.0 ? '・この1問限定!' : '';
+                auraBadge.textContent = `オーラ倍率: ×${State.auraMultiplier.toFixed(1)} (${State.auraName}${limitNote})`;
+                auraBadge.className = `text-[11px] font-black px-2.5 py-0.5 rounded-full border ${State.auraBadgeClass}`;
+            }
+
+            const diffNormalBtn = document.getElementById('diff-normal');
+            const diffHardBtn = document.getElementById('diff-hard');
+            if (State.difficulty === 'normal') {
+                diffNormalBtn.className = 'px-2.5 py-1 rounded-lg text-xs font-black transition bg-emerald-600 text-white shadow';
+                diffHardBtn.className = 'px-2.5 py-1 rounded-lg text-xs font-black transition text-slate-400 hover:text-slate-200';
+            } else {
+                diffHardBtn.className = 'px-2.5 py-1 rounded-lg text-xs font-black transition bg-rose-600 text-white shadow';
+                diffNormalBtn.className = 'px-2.5 py-1 rounded-lg text-xs font-black transition text-slate-400 hover:text-slate-200';
+            }
+
+            document.getElementById('btn-undo').disabled = State.history.length === 0 || State.isResolving;
+            document.getElementById('btn-reset').disabled = State.history.length === 0 || State.isResolving;
+        }
+
+        function setStatusMessage(html) {
+            const el = document.getElementById('status-message');
+            if (el) el.innerHTML = html;
+        }
+
+        function renderCards() {
+            const container = document.getElementById('cards-container');
+            container.innerHTML = '';
+            const currentTheme = NEON_THEMES[State.themeIndex % NEON_THEMES.length];
+
+            State.cards.forEach((card, idx) => {
+                const isSelected = State.selectedCardIndex === idx;
+                let auraCardClass = '';
+                if (State.auraMultiplier >= 5.0) {
+                    auraCardClass = 'card-aura-ssr';
+                } else if (State.auraMultiplier >= 3.0) {
+                    auraCardClass = 'card-aura-gold';
+                } else if (State.auraMultiplier > 1.0) {
+                    auraCardClass = `card-aura-boost ${currentTheme.border}`;
+                }
+
+                const borderStyle = State.auraMultiplier > 1.0 && !isSelected
+                    ? currentTheme.border
+                    : 'border-slate-700/90 hover:border-slate-500';
+
+                const btn = document.createElement('button');
+                btn.type = 'button';
+                btn.className = `number-card w-full h-28 sm:h-36 rounded-2xl bg-slate-900/95 border-2 ${
+                    isSelected ? 'selected border-yellow-300 bg-slate-800/95' : borderStyle
+                } ${auraCardClass} flex flex-col items-center justify-between p-2 sm:p-3 shadow-xl relative overflow-hidden anim-pop`;
+
+                // 上部：直前の計算式バッジ または CARD #
+                const topBadge = card.lastStep
+                    ? `<span class="px-2 py-0.5 rounded-full bg-amber-400/20 border border-amber-400/60 text-amber-300 text-[10px] sm:text-xs font-black tracking-tight truncate max-w-full">${card.lastStep}</span>`
+                    : `<span class="text-[10px] font-bold text-slate-400 tracking-wider">CARD #${idx + 1}</span>`;
+
+                // 中央：現在の数字（または分数）
+                const valStr = card.val.toString();
+                const fontSize = valStr.length >= 4 ? 'text-2xl sm:text-3xl' : 'text-3xl sm:text-5xl';
+
+                // 下部：分数か整数か、または選択中・オーラ発動中ガイド
+                let bottomLabel = '';
+                if (isSelected) {
+                    bottomLabel = `<span class="text-[10px] font-black text-yellow-300">✨ 選択中</span>`;
+                } else if (!card.val.isInt()) {
+                    bottomLabel = `<span class="text-[10px] font-black text-rose-400">分数×10倍</span>`;
+                } else if (State.auraMultiplier >= 5.0) {
+                    bottomLabel = `<span class="text-[10px] font-black text-yellow-200">🌈 SSR ×5.0倍!</span>`;
+                } else if (State.auraMultiplier >= 3.0) {
+                    bottomLabel = `<span class="text-[10px] font-black text-amber-300">✨ 黄金 ×3.0倍!</span>`;
+                } else if (State.auraMultiplier > 1.0) {
+                    bottomLabel = `<span class="text-[10px] font-black text-cyan-300">⚡ ×${State.auraMultiplier.toFixed(1)}倍!</span>`;
+                } else {
+                    bottomLabel = `<span class="text-[10px] font-bold text-slate-500">整数</span>`;
+                }
+
+                btn.innerHTML = `
+                    <div class="w-full flex justify-center">${topBadge}</div>
+                    <div class="${fontSize} font-black text-white font-mono tracking-tight my-auto drop-shadow">${valStr}</div>
+                    <div class="w-full flex justify-center">${bottomLabel}</div>
+                `;
+
+                btn.addEventListener('click', () => onCardClick(idx));
+                container.appendChild(btn);
+            });
+
+            // 演算ボタンのハイライト更新
+            document.querySelectorAll('.op-btn').forEach(b => {
+                if (b.dataset.op === State.selectedOp) {
+                    b.classList.add('selected');
+                } else {
+                    b.classList.remove('selected');
+                }
+            });
+        }
+
+        // ==========================================
+        // 7. 問題生成＆盤面セットアップ
+        // ==========================================
+        function generateProblem() {
+            const hardPool = [
+                [1, 1, 5, 8],
+                [3, 3, 7, 7],
+                [3, 3, 8, 8],
+                [1, 3, 4, 6],
+                [1, 4, 5, 6],
+                [2, 4, 6, 7],
+                [2, 5, 5, 9]
+            ];
+
+            if (State.difficulty === 'hard' && Math.random() < 0.35) {
+                const pick = hardPool[Math.floor(Math.random() * hardPool.length)];
+                return [...pick].sort(() => Math.random() - 0.5);
+            }
+
+            while (true) {
+                const nums = Array.from({ length: 4 }, () => Math.floor(Math.random() * 9) + 1);
+                const items = nums.map(n => ({ val: new Frac(n), expr: String(n) }));
+                const requireInt = State.difficulty === 'normal';
+                const sol = solveMake10(items, requireInt);
+                if (sol) return nums;
+            }
+        }
+
+        function setupCardsFromInitial() {
+            State.cards = State.initialNumbers.map(n => ({
+                val: new Frac(n),
+                expr: String(n),
+                lastStep: null,
+                maxInter: n,
+                usedFraction: false,
+                opBonus: 1
+            }));
+            State.history = [];
+            State.selectedCardIndex = null;
+            State.selectedOp = null;
+            State.hintStep = 0;
+            State.isResolving = false;
+            setStatusMessage('計算に使う数字カードをタップ！');
+            renderCards();
+            updateHeaderStats();
+        }
+
+        function resetAuraToDefault() {
+            State.auraMultiplier = 1.0;
+            State.auraName = '通常';
+            State.auraBadgeClass = 'bg-slate-800 text-slate-300 border-slate-700';
+        }
+
+        function nextProblem(keepSame = false) {
+            if (!keepSame) {
+                State.initialNumbers = generateProblem();
+                State.themeIndex = (State.themeIndex + 1) % NEON_THEMES.length;
+                // 次の問題へ進むときにガチャのオーラ倍率を1回限りでリセット！
+                resetAuraToDefault();
+                applyNeonTheme();
+            }
+            State.usedLaserThisRound = false;
+            State.timeLeft = State.timeLimit;
+            setupCardsFromInitial();
+            updateTimerUI();
+        }
+
+        // ==========================================
+        // 8. カード選択＆合体ロジック（合体後の自動選択対応）
+        // ==========================================
+        function onCardClick(idx) {
+            if (!State.isPlaying || State.isPaused || State.isResolving) return;
+
+            // まだカードが選ばれていないか、演算子が未選択ならそのカードを選択
+            if (State.selectedCardIndex === null || State.selectedOp === null) {
+                if (State.selectedCardIndex === idx) {
+                    State.selectedCardIndex = null;
+                    State.selectedOp = null;
+                    setStatusMessage('計算に使う数字カードをタップ！');
+                } else {
+                    State.selectedCardIndex = idx;
+                    Sound.play('tap');
+                    setStatusMessage(`「${State.cards[idx].val.toString()}」を選択中！ ＋ − × ÷ を選ぼう`);
+                }
+                renderCards();
+                return;
+            }
+
+            // 同じカードをタップした場合は選択解除
+            if (State.selectedCardIndex === idx) {
+                State.selectedCardIndex = null;
+                State.selectedOp = null;
+                Sound.play('tap');
+                setStatusMessage('選択を解除しました。数字カードをタップ！');
+                renderCards();
+                return;
+            }
+
+            // 2枚目のカードがタップされたら計算を実行
+            const firstIdx = State.selectedCardIndex;
+            const secondIdx = idx;
+            const cardA = State.cards[firstIdx];
+            const cardB = State.cards[secondIdx];
+            const op = State.selectedOp;
+
+            let newVal = null;
+            let opSymbol = '＋';
+            let opMult = 1.0;
+
+            if (op === '+') { newVal = cardA.val.add(cardB.val); opSymbol = '+'; opMult = 1.15; }
+            else if (op === '-') { newVal = cardA.val.sub(cardB.val); opSymbol = '-'; opMult = 1.25; }
+            else if (op === '*') { newVal = cardA.val.mul(cardB.val); opSymbol = '×'; opMult = 1.55; }
+            else if (op === '/') { newVal = cardA.val.div(cardB.val); opSymbol = '÷'; opMult = 1.85; }
+
+            if (!newVal) {
+                Sound.play('wrong');
+                setStatusMessage('<span class="text-rose-400">⚠️ 0で割ることはできません！</span>');
+                return;
+            }
+
+            // 履歴保存
+            State.history.push(State.cards.map(c => ({
+                val: new Frac(c.val.n, c.val.d),
+                expr: c.expr,
+                lastStep: c.lastStep,
+                maxInter: c.maxInter,
+                usedFraction: c.usedFraction,
+                opBonus: c.opBonus
+            })));
+
+            const stepLabel = `${cardA.val.toString()} ${opSymbol} ${cardB.val.toString()}`;
+            const mergedExpr = State.cards.length === 2
+                ? `${cardA.expr} ${opSymbol} ${cardB.expr}`
+                : `(${cardA.expr} ${opSymbol} ${cardB.expr})`;
+
+            const absNum = Math.abs(newVal.toNumber());
+            const mergedCard = {
+                val: newVal,
+                expr: mergedExpr,
+                lastStep: stepLabel,
+                maxInter: Math.max(cardA.maxInter, cardB.maxInter, absNum),
+                usedFraction: cardA.usedFraction || cardB.usedFraction || !newVal.isInt(),
+                opBonus: cardA.opBonus * cardB.opBonus * opMult
+            };
+
+            // 最初に選んだカードの位置に新しい計算結果のカードをそのまま残す
+            const nextCards = [];
+            let mergedNewIndex = 0;
+            State.cards.forEach((c, i) => {
+                if (i === firstIdx) {
+                    mergedNewIndex = nextCards.length;
+                    nextCards.push(mergedCard);
+                } else if (i !== secondIdx) {
+                    nextCards.push(c);
+                }
+            });
+
+            State.cards = nextCards;
+            State.selectedOp = null;
+
+            // 残り2枚以上なら、新しくできたカードをそのまま自動選択して連続計算しやすくする！
+            if (State.cards.length > 1) {
+                State.selectedCardIndex = mergedNewIndex;
+                Sound.play('merge');
+                setStatusMessage(`✨「${stepLabel} = ${newVal.toString()}」を作成！続けて ＋ − × ÷ を選べます`);
+                renderCards();
+                updateHeaderStats();
+            } else {
+                State.selectedCardIndex = null;
+                renderCards();
+                updateHeaderStats();
+                checkFinalCard(State.cards[0]);
+            }
+        }
+
+        function spawnFloatingText(mainText, subText = '', colorClass = 'text-amber-300') {
+            const layer = document.getElementById('fx-layer');
+            const div = document.createElement('div');
+            div.className = 'floating-dmg text-center';
+            div.innerHTML = `
+                <div class="text-2xl sm:text-4xl font-black ${colorClass} drop-shadow-[0_4px_16px_rgba(0,0,0,0.9)] whitespace-nowrap">${mainText}</div>
+                ${subText ? `<div class="text-xs sm:text-sm font-black text-white bg-slate-950/90 px-3 py-1 rounded-full border border-white/20 mt-1 inline-block">${subText}</div>` : ''}
+            `;
+            layer.appendChild(div);
+            setTimeout(() => div.remove(), 1300);
+        }
+
+        function spawnConfetti(count = 45) {
+            const layer = document.getElementById('fx-layer');
+            const colors = ['#f472b6', '#22d3ee', '#facc15', '#a3e635', '#c084fc', '#fb7185', '#ffffff'];
+            for (let i = 0; i < count; i++) {
+                const piece = document.createElement('div');
+                piece.className = 'confetti-piece';
+                const size = 7 + Math.floor(Math.random() * 8);
+                piece.style.width = `${size}px`;
+                piece.style.height = `${Math.floor(size * 1.4)}px`;
+                piece.style.left = `${Math.random() * 100}vw`;
+                piece.style.backgroundColor = colors[Math.floor(Math.random() * colors.length)];
+                piece.style.setProperty('--drift', `${(Math.random() - 0.5) * 220}px`);
+                piece.style.setProperty('--dur', `${1.4 + Math.random() * 1.3}s`);
+                layer.appendChild(piece);
+                setTimeout(() => piece.remove(), 2800);
+            }
+        }
+
+        function triggerScreenFlash() {
+            const layer = document.getElementById('fx-layer');
+            const flash = document.createElement('div');
+            flash.className = 'gacha-flash';
+            layer.appendChild(flash);
+            setTimeout(() => flash.remove(), 800);
+        }
+
+        function openBreakModal() {
+            State.isPaused = true;
+            Sound.play('yay');
+            spawnConfetti(55);
+            document.getElementById('break-title').textContent = `🎉 ${State.combo}連勝達成！！`;
+            document.getElementById('break-total-dmg').textContent = formatDamageText(State.totalDamage);
+            const m = document.getElementById('modal-break');
+            m.classList.remove('hidden');
+            m.classList.add('flex');
+        }
+
+        function checkFinalCard(finalCard) {
+            if (State.isResolving) return; // 二重判定防止ガード
+            if (finalCard.val.isTen()) {
+                State.isResolving = true;
+                Sound.play('clear');
+
+                State.combo++;
+                State.solvedCount++;
+
+                // インフレダメージ計算（オーラ倍率も乗算！）
+                const base = 1200 + Math.pow(finalCard.maxInter, 2.15) * 95;
+                const comboMult = Math.pow(1.42, Math.min(State.combo, 35));
+                const fracMult = finalCard.usedFraction ? 10 : 1;
+                const diffMult = State.difficulty === 'hard' ? 2.5 : 1;
+                const timeBonus = State.mode === 'score' ? (1 + (State.timeLeft / State.timeLimit) * 1.5) : 1;
+
+                const rawDamage = Math.floor(base * finalCard.opBonus * comboMult * fracMult * diffMult * timeBonus * State.auraMultiplier);
+                State.totalDamage += rawDamage;
+                if (rawDamage > State.maxSingleHit) {
+                    State.maxSingleHit = rawDamage;
+                }
+
+                // コイン獲得（強制レーザー使用時は無限増殖防止のため0コイン）
+                let earnedCoins = 0;
+                if (!State.usedLaserThisRound) {
+                    earnedCoins = 35 + Math.min(120, State.combo * 8) + (finalCard.usedFraction ? 50 : 0);
+                    State.coins += earnedCoins;
+                }
+
+                const pName = getDisplayPlayerName();
+
+                // 歴代記録更新
+                State.records.totalSolved++;
+                if (State.combo > State.records.maxCombo) {
+                    State.records.maxCombo = State.combo;
+                }
+                if (rawDamage > State.records.maxSingle) {
+                    State.records.maxSingle = rawDamage;
+                    State.records.maxFormula = `${finalCard.expr} = 10`;
+                    State.records.maxPlayer = pName;
+                }
+                State.records.topHits.push({
+                    player: pName,
+                    damage: rawDamage,
+                    formula: `${finalCard.expr} = 10`,
+                    combo: State.combo
+                });
+                State.records.topHits.sort((a, b) => b.damage - a.damage);
+                State.records.topHits = State.records.topHits.slice(0, 5);
+                saveData();
+
+                // ダメージ演出ティア
+                let tierLabel = '🎯 CLEAR!';
+                let colorClass = 'text-emerald-300';
+                if (rawDamage >= 1e12) { tierLabel = '🌌 LIMIT BREAK!!'; colorClass = 'text-fuchsia-300'; spawnConfetti(40); }
+                else if (rawDamage >= 1e8) { tierLabel = '⚡ GODLIKE HIT!!'; colorClass = 'text-amber-300'; spawnConfetti(25); }
+                else if (rawDamage >= 1e6) { tierLabel = '🔥 MEGA HIT!'; colorClass = 'text-rose-300'; }
+
+                const dmgStr = formatDamageText(rawDamage);
+                const coinNote = earnedCoins > 0 ? ` ＋🪙${earnedCoins}` : '';
+                spawnFloatingText(`${tierLabel} ${dmgStr}`, `${finalCard.expr} = 10 (${State.combo}連勝${coinNote})`, colorClass);
+                setStatusMessage(`<span class="text-emerald-300 font-black">🎉 正解！「${finalCard.expr} = 10」 ➔ ${dmgStr}！</span>`);
+
+                updateHeaderStats();
+
+                // 20連勝ごとの区切り（続ける / やめる）モーダル表示
+                if (State.combo > 0 && State.combo % 20 === 0) {
+                    if (State.roundTimeoutId) clearTimeout(State.roundTimeoutId);
+                    State.roundTimeoutId = setTimeout(() => {
+                        State.roundTimeoutId = null;
+                        if (State.isPlaying) openBreakModal();
+                    }, 700);
+                    return;
+                }
+
+                if (State.roundTimeoutId) clearTimeout(State.roundTimeoutId);
+                State.roundTimeoutId = setTimeout(() => {
+                    State.roundTimeoutId = null;
+                    if (State.isPlaying && !State.isPaused) nextProblem(false);
+                }, 850);
+            } else {
+                Sound.play('wrong');
+                setStatusMessage(`<span class="text-rose-400 font-black">💦 「${finalCard.val.toString()}」になりました（10ではありません）。「1手戻す」か「最初に戻す」を押そう！</span>`);
+            }
+        }
+
+        // ==========================================
+        // 9. 無料ヒント＆サポートアイテム機能
+        // ==========================================
+        function useFreeHint() {
+            if (!State.isPlaying || State.isPaused || State.isResolving) return;
+
+            const currentItems = State.cards.map(c => ({ val: c.val, expr: c.expr }));
+            let sol = solveMake10(currentItems, State.difficulty === 'normal');
+            if (!sol) sol = solveMake10(currentItems, false);
+
+            let fromInitial = false;
+            if (!sol) {
+                fromInitial = true;
+                const initItems = State.initialNumbers.map(n => ({ val: new Frac(n), expr: String(n) }));
+                sol = solveMake10(initItems, State.difficulty === 'normal') || solveMake10(initItems, false);
+            }
+
+            if (!sol || sol.steps.length === 0) {
+                Sound.play('wrong');
+                setStatusMessage(`<span class="text-amber-300">すでに10が完成しているか、ヒントが不要な状態です！</span>`);
+                return;
+            }
+
+            State.hintStep = Math.min(2, State.hintStep + 1);
+            Sound.play('tap');
+            updateHeaderStats();
+
+            if (fromInitial) {
+                setupCardsFromInitial();
+                setStatusMessage(
+                    `<span class="text-amber-300 font-black">💡 盤面を最初に戻しました！まずは『 ${sol.steps[0]} 』を作ってみよう！</span>`
+                );
+            } else if (State.hintStep === 1 || sol.steps.length === 1) {
+                setStatusMessage(
+                    `<span class="text-amber-300 font-black">💡 ヒント(1手目)：まずは『 ${sol.steps[0]} 』を作ってみよう！</span>`
+                );
+            } else {
+                const secondInfo = sol.steps[1] ? ` ➔ 次に『 ${sol.steps[1]} 』` : '';
+                setStatusMessage(
+                    `<span class="text-amber-300 font-black">💡 ヒント(連続)：『 ${sol.steps[0]} 』${secondInfo} （答え: ${sol.expr} = 10）</span>`
+                );
+            }
+        }
+
+        function useColorGacha() {
+            if (!State.isPlaying || State.isPaused || State.isResolving) return;
+            const cost = 80;
+            if (State.coins < cost) {
+                Sound.play('wrong');
+                setStatusMessage(`<span class="text-rose-400">コインが足りません！（SSRカラーガチャ: 🪙${cost}）</span>`);
+                return;
+            }
+            State.coins -= cost;
+
+            const r = Math.random();
+            let acc = 0;
+            let picked = AURA_TIERS[0];
+            for (const tier of AURA_TIERS) {
+                acc += tier.prob;
+                if (r <= acc) {
+                    picked = tier;
+                    break;
+                }
+            }
+
+            State.themeIndex = (State.themeIndex + 1 + Math.floor(Math.random() * (NEON_THEMES.length - 1))) % NEON_THEMES.length;
+            State.auraMultiplier = picked.mult;
+            State.auraName = picked.name;
+            State.auraBadgeClass = picked.badgeClass;
+
+            applyNeonTheme();
+            renderCards();
+            updateHeaderStats();
+            saveData();
+
+            const themeName = NEON_THEMES[State.themeIndex].name;
+
+            // 高倍率（×3.0以上）やSSR時は「イェーイ！」歓声＋紙吹雪＋画面フラッシュ！
+            if (picked.mult >= 3.0) {
+                Sound.play('yay');
+                triggerScreenFlash();
+                spawnConfetti(picked.mult >= 5.0 ? 75 : 40);
+                spawnFloatingText(
+                    `🎉 【 この1問 ×${picked.mult.toFixed(1)} 倍 覚 醒 ！！ 】`,
+                    `${picked.name} ＆ カード発光発動！イェーイ！！`,
+                    'text-yellow-300'
+                );
+            } else {
+                Sound.play('gacha');
+                spawnConfetti(18);
+                spawnFloatingText(
+                    `💎 ${picked.name} (この1問 ×${picked.mult.toFixed(1)}倍)`,
+                    `ネオンカラーが「${themeName}」に変化！`,
+                    'text-amber-300'
+                );
+            }
+
+            setStatusMessage(
+                `<span class="text-amber-300 font-black">🎰 ガチャ結果：『${picked.name}』発動！ この1問のダメージが <span class="text-yellow-300">×${picked.mult.toFixed(1)}倍</span> ＆ カード発光！</span>`
+            );
+        }
+
+        function useForceLaser() {
+            if (!State.isPlaying || State.isPaused || State.isResolving) return;
+            const cost = 150;
+            if (State.coins < cost) {
+                Sound.play('wrong');
+                setStatusMessage(`<span class="text-rose-400">コインが足りません！（強制10レーザー: 🪙${cost}）</span>`);
+                return;
+            }
+            State.coins -= cost;
+            State.usedLaserThisRound = true;
+            Sound.play('laser');
+
+            const initItems = State.initialNumbers.map(n => ({ val: new Frac(n), expr: String(n) }));
+            const sol = solveMake10(initItems, State.difficulty === 'normal') || solveMake10(initItems, false);
+            const exprText = sol ? sol.expr : `LASER(${State.initialNumbers.join(',')})`;
+
+            State.cards = [{
+                val: new Frac(10),
+                expr: exprText,
+                lastStep: '⚡ 強制10レーザー',
+                maxInter: 25,
+                usedFraction: false,
+                opBonus: 2.0
+            }];
+            State.selectedCardIndex = null;
+            State.selectedOp = null;
+            renderCards();
+            updateHeaderStats();
+            checkFinalCard(State.cards[0]);
+        }
+
+        function useFreezeTime() {
+            if (!State.isPlaying || State.isPaused || State.isResolving) return;
+            if (State.mode !== 'score') {
+                setStatusMessage('<span class="text-sky-300">無限モードでは時間制限はありません！</span>');
+                return;
+            }
+            const cost = 100;
+            if (State.coins < cost) {
+                Sound.play('wrong');
+                setStatusMessage(`<span class="text-rose-400">コインが足りません！（時間凍結+15秒: 🪙${cost}）</span>`);
+                return;
+            }
+            State.coins -= cost;
+            State.timeLeft = Math.min(State.timeLimit + 15, State.timeLeft + 15);
+            Sound.play('merge');
+            spawnFloatingText('❄️ TIME +15.0秒!', 'ネオンゲージを押し戻した！', 'text-cyan-300');
+            updateTimerUI();
+            updateHeaderStats();
+            saveData();
+        }
+
+        // ==========================================
+        // 10. タイマー＆迫り上がるネオンゲージ制御
+        // ==========================================
+        function stopTimerLoop() {
+            if (State.timerId) {
+                clearInterval(State.timerId);
+                State.timerId = null;
+            }
+            if (State.roundTimeoutId) {
+                clearTimeout(State.roundTimeoutId);
+                State.roundTimeoutId = null;
+            }
+        }
+
+        function startTimerLoop() {
+            stopTimerLoop();
+            const lava = document.getElementById('lava-container');
+            if (State.mode === 'endless') {
+                lava.classList.add('hidden');
+                document.getElementById('stat-time').textContent = '∞ 無制限';
+                return;
+            }
+            lava.classList.remove('hidden');
+            applyNeonTheme();
+
+            State.timerId = setInterval(() => {
+                if (!State.isPlaying || State.isPaused || State.isResolving) return;
+                State.timeLeft = Math.max(0, State.timeLeft - 0.1);
+                updateTimerUI();
+
+                if (State.timeLeft <= 0) {
+                    onTimeUp();
+                }
+            }, 100);
+        }
+
+        function updateTimerUI() {
+            const timeEl = document.getElementById('stat-time');
+            const lava = document.getElementById('lava-container');
+            if (State.mode === 'endless') {
+                timeEl.textContent = '∞ 無制限';
+                lava.style.height = '0%';
+                return;
+            }
+            timeEl.textContent = `${State.timeLeft.toFixed(1)}秒`;
+            const ratio = Math.max(0, Math.min(1, 1 - State.timeLeft / State.timeLimit));
+            lava.style.height = `${(ratio * 92).toFixed(1)}%`;
+        }
+
+        function onTimeUp() {
+            State.isPaused = true;
+            State.combo = 0;
+            Sound.play('wrong');
+            updateHeaderStats();
+
+            document.getElementById('timeup-numbers').textContent = State.initialNumbers.join(' , ');
+            const initItems = State.initialNumbers.map(n => ({ val: new Frac(n), expr: String(n) }));
+            const sol = solveMake10(initItems, State.difficulty === 'normal') || solveMake10(initItems, false);
+            document.getElementById('timeup-solution').textContent = sol ? sol.expr : '解答なし';
+
+            document.getElementById('timeup-answer-box').classList.add('hidden');
+            const modal = document.getElementById('modal-timeup');
+            modal.classList.remove('hidden');
+            modal.classList.add('flex');
+        }
+
+        function renderRecordsModal() {
+            document.getElementById('rec-max-single').textContent = formatDamageText(State.records.maxSingle);
+            document.getElementById('rec-max-formula').textContent = State.records.maxFormula;
+            const maxPlayerEl = document.getElementById('rec-max-player');
+            if (maxPlayerEl) {
+                maxPlayerEl.textContent = `👤 ${State.records.maxPlayer || 'ゲスト'}`;
+            }
+            document.getElementById('rec-total-solved').textContent = `${State.records.totalSolved}問クリア`;
+            document.getElementById('rec-max-combo').textContent = `最大 ${State.records.maxCombo} 連勝`;
+
+            const list = document.getElementById('rec-ranking-list');
+            list.innerHTML = '';
+            if (State.records.topHits.length === 0) {
+                list.innerHTML = `<div class="text-xs text-slate-500 py-4 text-center">まだ記録がありません。10を作って大ダメージを出そう！</div>`;
+                return;
+            }
+            State.records.topHits.forEach((item, idx) => {
+                const playerLabel = item.player ? item.player : 'ゲスト';
+                const row = document.createElement('div');
+                row.className = 'flex items-center justify-between bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs';
+                row.innerHTML = `
+                    <div class="flex items-center gap-2 truncate">
+                        <span class="font-black text-amber-400">#${idx + 1}</span>
+                        <span class="px-1.5 py-0.5 rounded bg-indigo-950 border border-indigo-500/40 text-[10px] font-black text-indigo-200 whitespace-nowrap">👤 ${playerLabel}</span>
+                        <span class="font-bold text-slate-200 truncate">${item.formula}</span>
+                    </div>
+                    <div class="font-black text-pink-400 whitespace-nowrap ml-2">${formatDamageText(item.damage)}</div>
+                `;
+                list.appendChild(row);
+            });
+        }
+
+        // ==========================================
+        // 11. イベントリスナー登録
+        // ==========================================
+        window.addEventListener('DOMContentLoaded', () => {
+            // セーブデータ読み込み＆プレイヤー名入力欄への反映（デフォルトは空欄）
+            loadSavedData();
+            const nameInputEl = document.getElementById('input-player-name');
+            if (nameInputEl) {
+                nameInputEl.value = State.playerName || '';
+                nameInputEl.addEventListener('input', () => {
+                    State.playerName = nameInputEl.value.trim();
+                    updateHeaderStats();
+                    saveData();
+                });
+            }
+
+            // 演算子ボタン
+            document.querySelectorAll('.op-btn').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    if (!State.isPlaying || State.isPaused || State.isResolving) return;
+                    if (State.selectedCardIndex === null) {
+                        Sound.play('wrong');
+                        setStatusMessage('<span class="text-amber-300">先に計算したい数字カードをタップしてね！</span>');
+                        return;
+                    }
+                    State.selectedOp = btn.dataset.op;
+                    Sound.play('tap');
+                    const cardVal = State.cards[State.selectedCardIndex].val.toString();
+                    setStatusMessage(`「${cardVal} ${btn.textContent.trim()} ...」 2枚目の数字カードをタップ！`);
+                    renderCards();
+                });
+            });
+
+            // 1手戻す
+            document.getElementById('btn-undo').addEventListener('click', () => {
+                if (!State.isPlaying || State.isPaused || State.isResolving || State.history.length === 0) return;
+                Sound.play('tap');
+                State.cards = State.history.pop();
+                State.selectedCardIndex = null;
+                State.selectedOp = null;
+                setStatusMessage('1手戻しました。数字カードをタップ！');
+                renderCards();
+                updateHeaderStats();
+            });
+
+            // 最初に戻す
+            document.getElementById('btn-reset').addEventListener('click', () => {
+                if (!State.isPlaying || State.isPaused || State.isResolving || State.history.length === 0) return;
+                Sound.play('tap');
+                setupCardsFromInitial();
+            });
+
+            // パス（次の問題へ）
+            document.getElementById('btn-skip').addEventListener('click', () => {
+                if (!State.isPlaying || State.isPaused || State.isResolving) return;
+                Sound.play('tap');
+                State.combo = 0;
+                nextProblem(false);
+            });
+
+            // 無料ヒント＆SSRカラーガチャ＆レーザー＆凍結
+            document.getElementById('btn-free-hint').addEventListener('click', useFreeHint);
+            document.getElementById('btn-gacha').addEventListener('click', useColorGacha);
+            document.getElementById('btn-laser').addEventListener('click', useForceLaser);
+            document.getElementById('btn-freeze').addEventListener('click', useFreezeTime);
+
+            // 難易度切替（ヘッダー内）
+            document.getElementById('diff-normal').addEventListener('click', () => {
+                if (State.difficulty === 'normal') return;
+                State.difficulty = 'normal';
+                Sound.play('tap');
+                if (State.isPlaying) nextProblem(false);
+                else updateHeaderStats();
+            });
+            document.getElementById('diff-hard').addEventListener('click', () => {
+                if (State.difficulty === 'hard') return;
+                State.difficulty = 'hard';
+                Sound.play('tap');
+                if (State.isPlaying) nextProblem(false);
+                else updateHeaderStats();
+            });
+
+            // タイトル画面：難易度選択
+            const titleNormal = document.getElementById('title-diff-normal');
+            const titleHard = document.getElementById('title-diff-hard');
+            titleNormal.addEventListener('click', () => {
+                State.difficulty = 'normal';
+                Sound.play('tap');
+                titleNormal.className = 'py-2.5 px-3 rounded-xl font-black text-xs border-2 border-emerald-400 bg-emerald-950/80 text-emerald-200 transition';
+                titleHard.className = 'py-2.5 px-3 rounded-xl font-black text-xs border border-slate-700 bg-slate-800/80 text-slate-400 transition';
+                updateHeaderStats();
+            });
+            titleHard.addEventListener('click', () => {
+                State.difficulty = 'hard';
+                Sound.play('tap');
+                titleHard.className = 'py-2.5 px-3 rounded-xl font-black text-xs border-2 border-rose-400 bg-rose-950/80 text-rose-200 transition';
+                titleNormal.className = 'py-2.5 px-3 rounded-xl font-black text-xs border border-slate-700 bg-slate-800/80 text-slate-400 transition';
+                updateHeaderStats();
+            });
+
+            // タイトル画面：制限時間選択
+            document.querySelectorAll('.title-time-btn').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    Sound.play('tap');
+                    State.timeLimit = parseInt(btn.dataset.time, 10);
+                    document.querySelectorAll('.title-time-btn').forEach(b => {
+                        if (b === btn) {
+                            b.className = 'title-time-btn py-2 px-2 rounded-xl font-black text-xs border-2 border-cyan-400 bg-cyan-950/80 text-cyan-200 transition';
+                        } else {
+                            b.className = 'title-time-btn py-2 px-2 rounded-xl font-black text-xs border border-slate-700 bg-slate-800/80 text-slate-400 transition';
+                        }
+                    });
+                });
+            });
+
+            // ゲーム開始
+            function startGame(mode) {
+                const nameInput = document.getElementById('input-player-name');
+                if (nameInput) {
+                    State.playerName = nameInput.value.trim();
+                }
+                saveData();
+
+                Sound.play('clear');
+                State.mode = mode;
+                State.isPlaying = true;
+                State.isPaused = false;
+                State.isResolving = false;
+                State.combo = 0;
+                State.solvedCount = 0;
+                State.totalDamage = 0;
+                State.maxSingleHit = 0;
+                resetAuraToDefault();
+
+                const modeBadge = document.getElementById('mode-badge');
+                if (mode === 'score') {
+                    modeBadge.textContent = `スコアモード(${State.timeLimit}秒)`;
+                    modeBadge.className = 'text-[10px] font-black px-2 py-0.5 rounded-full bg-emerald-950/90 text-emerald-300 border border-emerald-500/40';
+                } else {
+                    modeBadge.textContent = '無限モード(時間無制限)';
+                    modeBadge.className = 'text-[10px] font-black px-2 py-0.5 rounded-full bg-indigo-950/90 text-indigo-300 border border-indigo-500/40';
+                }
+
+                document.getElementById('modal-title').classList.add('hidden');
+                nextProblem(false);
+                startTimerLoop();
+                Sound.startBGM();
+            }
+
+            document.getElementById('btn-start-score').addEventListener('click', () => startGame('score'));
+            document.getElementById('btn-start-endless').addEventListener('click', () => startGame('endless'));
+
+            // タイトルへ戻る（やめる）
+            function returnToTitle() {
+                Sound.play('tap');
+                stopTimerLoop();
+                Sound.stopBGM();
+                State.isPlaying = false;
+                State.isPaused = false;
+                State.isResolving = false;
+                const lava = document.getElementById('lava-container');
+                lava.classList.add('hidden');
+                lava.style.height = '0%';
+                document.getElementById('modal-pause').classList.add('hidden');
+                document.getElementById('modal-pause').classList.remove('flex');
+                document.getElementById('modal-break').classList.add('hidden');
+                document.getElementById('modal-break').classList.remove('flex');
+                document.getElementById('modal-timeup').classList.add('hidden');
+                document.getElementById('modal-timeup').classList.remove('flex');
+                document.getElementById('modal-title').classList.remove('hidden');
+                saveData();
+            }
+
+            document.getElementById('btn-quit').addEventListener('click', returnToTitle);
+            document.getElementById('btn-pause-quit').addEventListener('click', returnToTitle);
+            document.getElementById('btn-break-quit').addEventListener('click', returnToTitle);
+
+            // 20連勝ごとの区切り：続ける
+            document.getElementById('btn-break-continue').addEventListener('click', () => {
+                Sound.play('clear');
+                const m = document.getElementById('modal-break');
+                m.classList.add('hidden');
+                m.classList.remove('flex');
+                State.isPaused = false;
+                nextProblem(false);
+            });
+
+            // 一時停止モーダル開閉
+            document.getElementById('btn-pause').addEventListener('click', () => {
+                if (!State.isPlaying) return;
+                Sound.play('tap');
+                State.isPaused = true;
+                const m = document.getElementById('modal-pause');
+                m.classList.remove('hidden');
+                m.classList.add('flex');
+            });
+
+            document.getElementById('btn-resume').addEventListener('click', () => {
+                Sound.play('tap');
+                State.isPaused = false;
+                const m = document.getElementById('modal-pause');
+                m.classList.add('hidden');
+                m.classList.remove('flex');
+            });
+
+            // タイムアップ時の選択（正解を見る / リトライ / 次へ）
+            document.getElementById('btn-reveal-answer').addEventListener('click', () => {
+                Sound.play('tap');
+                document.getElementById('timeup-answer-box').classList.remove('hidden');
+            });
+
+            document.getElementById('btn-timeup-retry').addEventListener('click', () => {
+                Sound.play('tap');
+                const m = document.getElementById('modal-timeup');
+                m.classList.add('hidden');
+                m.classList.remove('flex');
+                State.isPaused = false;
+                nextProblem(true); // 同じ問題でリトライ
+            });
+
+            document.getElementById('btn-timeup-next').addEventListener('click', () => {
+                Sound.play('tap');
+                const m = document.getElementById('modal-timeup');
+                m.classList.add('hidden');
+                m.classList.remove('flex');
+                State.isPaused = false;
+                nextProblem(false); // 新しい問題へ
+            });
+
+            // 歴代記録モーダル開閉（一時停止画面から開いた場合も考慮）
+            function openRecords(fromPause = false) {
+                Sound.play('tap');
+                State.OpenedRecordsFromPause = fromPause;
+                if (State.isPlaying) State.isPaused = true;
+                renderRecordsModal();
+                const m = document.getElementById('modal-records');
+                m.classList.remove('hidden');
+                m.classList.add('flex');
+            }
+
+            function closeRecords() {
+                Sound.play('tap');
+                const m = document.getElementById('modal-records');
+                m.classList.add('hidden');
+                m.classList.remove('flex');
+                if (State.isPlaying && !State.OpenedRecordsFromPause) {
+                    const pauseModal = document.getElementById('modal-pause');
+                    if (pauseModal.classList.contains('hidden')) {
+                        State.isPaused = false;
+                    }
+                }
+            }
+
+            document.getElementById('btn-records').addEventListener('click', () => openRecords(false));
+            document.getElementById('btn-title-records').addEventListener('click', () => openRecords(false));
+            document.getElementById('btn-pause-records').addEventListener('click', () => openRecords(true));
+            document.getElementById('btn-close-records').addEventListener('click', closeRecords);
+            document.getElementById('btn-close-records-bottom').addEventListener('click', closeRecords);
+
+            // 遊び方モーダル開閉
+            function openHelp() {
+                Sound.play('tap');
+                if (State.isPlaying) State.isPaused = true;
+                const m = document.getElementById('modal-help');
+                m.classList.remove('hidden');
+                m.classList.add('flex');
+            }
+            function closeHelp() {
+                Sound.play('tap');
+                const m = document.getElementById('modal-help');
+                m.classList.add('hidden');
+                m.classList.remove('flex');
+                if (State.isPlaying && document.getElementById('modal-pause').classList.contains('hidden')) {
+                    State.isPaused = false;
+                }
+            }
+            document.getElementById('btn-help').addEventListener('click', openHelp);
+            document.getElementById('btn-title-help').addEventListener('click', openHelp);
+            document.getElementById('btn-close-help').addEventListener('click', closeHelp);
+            document.getElementById('btn-close-help-bottom').addEventListener('click', closeHelp);
+
+            // BGM ON/OFF 切替
+            document.getElementById('btn-bgm').addEventListener('click', () => {
+                Sound.bgmEnabled = !Sound.bgmEnabled;
+                const icon = document.getElementById('icon-bgm');
+                const btn = document.getElementById('btn-bgm');
+                if (Sound.bgmEnabled) {
+                    icon.className = 'fa-solid fa-music text-sm';
+                    btn.className = 'w-9 h-9 rounded-xl bg-slate-800/90 hover:bg-slate-700 border border-slate-700 text-emerald-400 flex items-center justify-center transition';
+                    Sound.play('tap');
+                    if (State.isPlaying) Sound.startBGM();
+                } else {
+                    icon.className = 'fa-solid fa-music text-sm text-slate-500 opacity-50';
+                    btn.className = 'w-9 h-9 rounded-xl bg-slate-800/90 hover:bg-slate-700 border border-slate-700 text-slate-500 flex items-center justify-center transition';
+                    Sound.stopBGM();
+                }
+            });
+
+            // 効果音 ON/OFF
+            document.getElementById('btn-sound').addEventListener('click', () => {
+                Sound.enabled = !Sound.enabled;
+                const icon = document.getElementById('icon-sound');
+                icon.className = Sound.enabled ? 'fa-solid fa-volume-high text-sm' : 'fa-solid fa-volume-xmark text-sm text-slate-500';
+                if (Sound.enabled) Sound.play('tap');
+            });
+
+            // 初期描画
+            setupCardsFromInitial();
+        });
+    </script>
+</body>
+</html>
