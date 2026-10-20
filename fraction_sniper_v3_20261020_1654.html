@@ -1,0 +1,1705 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Fraction_Sniper_v3 - 数直線スナイパー迎撃戦</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@700;900&family=Noto+Sans+JP:wght@700;900&display=swap" rel="stylesheet">
+    <style>
+        * {
+            box-sizing: border-box;
+            user-select: none;
+            -webkit-user-select: none;
+            -webkit-touch-callout: none;
+        }
+        body {
+            font-family: 'Inter', 'Noto Sans JP', sans-serif;
+            background-color: #060913;
+            color: #f8fafc;
+            overflow-x: hidden;
+        }
+        /* 下からせり上がるネオン制限時間ゲージ */
+        #lava-container {
+            position: fixed;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            height: 0%;
+            z-index: 5;
+            pointer-events: none;
+            transition: height 0.1s linear, background 0.4s ease;
+            background: linear-gradient(180deg, rgba(6, 182, 212, 0.38) 0%, rgba(15, 23, 42, 0.88) 100%);
+            background-image: 
+                linear-gradient(rgba(255, 255, 255, 0.06) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(255, 255, 255, 0.06) 1px, transparent 1px);
+            background-size: 28px 28px;
+        }
+        #lava-line {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 4px;
+            background: #22d3ee;
+            box-shadow: 0 0 20px #06b6d4, 0 0 40px #06b6d4;
+            transition: background 0.4s ease, box-shadow 0.4s ease;
+        }
+        @keyframes popIn {
+            0% { transform: scale(0.75); opacity: 0.3; }
+            70% { transform: scale(1.06); }
+            100% { transform: scale(1); opacity: 1; }
+        }
+        .anim-pop {
+            animation: popIn 0.2s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+        }
+        @keyframes floatUp {
+            0% { transform: translate(-50%, 0) scale(0.7); opacity: 0; }
+            20% { transform: translate(-50%, -18px) scale(1.12); opacity: 1; }
+            80% { transform: translate(-50%, -55px) scale(1); opacity: 1; }
+            100% { transform: translate(-50%, -80px) scale(0.9); opacity: 0; }
+        }
+        .floating-dmg {
+            position: fixed;
+            left: 50%;
+            top: 40%;
+            z-index: 60;
+            pointer-events: none;
+            animation: floatUp 1.25s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+        }
+        @keyframes confettiFall {
+            0% { transform: translate3d(0, -10vh, 0) rotate(0deg); opacity: 1; }
+            85% { opacity: 1; }
+            100% { transform: translate3d(var(--drift, 40px), 105vh, 0) rotate(720deg); opacity: 0; }
+        }
+        .confetti-piece {
+            position: fixed;
+            top: -20px;
+            z-index: 70;
+            pointer-events: none;
+            border-radius: 3px;
+            animation: confettiFall var(--dur, 2.2s) cubic-bezier(0.25, 0.46, 0.45, 0.94) forwards;
+        }
+        @keyframes screenFlash {
+            0% { opacity: 0.85; }
+            100% { opacity: 0; }
+        }
+        .gacha-flash {
+            position: fixed;
+            inset: 0;
+            z-index: 65;
+            pointer-events: none;
+            background: radial-gradient(circle, rgba(253, 224, 71, 0.85) 0%, rgba(236, 72, 153, 0.65) 50%, rgba(6, 182, 212, 0) 100%);
+            animation: screenFlash 0.75s ease-out forwards;
+        }
+        /* オーラ発光エフェクト */
+        @keyframes rainbowGlow {
+            0% { border-color: #f472b6; box-shadow: 0 0 24px rgba(244, 114, 182, 0.9), inset 0 0 16px rgba(244, 114, 182, 0.38); }
+            25% { border-color: #facc15; box-shadow: 0 0 28px rgba(250, 204, 21, 0.95), inset 0 0 18px rgba(250, 204, 21, 0.42); }
+            50% { border-color: #4ade80; box-shadow: 0 0 24px rgba(74, 222, 128, 0.9), inset 0 0 16px rgba(74, 222, 128, 0.38); }
+            75% { border-color: #22d3ee; box-shadow: 0 0 28px rgba(34, 211, 238, 0.95), inset 0 0 18px rgba(34, 211, 238, 0.42); }
+            100% { border-color: #f472b6; box-shadow: 0 0 24px rgba(244, 114, 182, 0.9), inset 0 0 16px rgba(244, 114, 182, 0.38); }
+        }
+        .card-aura-ssr {
+            background: linear-gradient(135deg, rgba(80, 7, 36, 0.92), rgba(15, 23, 42, 0.94), rgba(8, 51, 68, 0.92)) !important;
+            animation: rainbowGlow 1.5s linear infinite !important;
+        }
+        @keyframes goldGlow {
+            0%, 100% { border-color: #fbbf24; box-shadow: 0 0 20px rgba(251, 191, 36, 0.78), inset 0 0 14px rgba(251, 191, 36, 0.3); }
+            50% { border-color: #fef08a; box-shadow: 0 0 28px rgba(254, 240, 138, 0.96), inset 0 0 18px rgba(254, 240, 138, 0.45); }
+        }
+        .card-aura-gold {
+            background: linear-gradient(135deg, rgba(69, 26, 3, 0.92), rgba(15, 23, 42, 0.95)) !important;
+            animation: goldGlow 1.4s ease-in-out infinite !important;
+        }
+        .card-aura-boost {
+            box-shadow: 0 0 18px rgba(34, 211, 238, 0.6), inset 0 0 12px rgba(34, 211, 238, 0.25);
+        }
+        /* 分数コンポーネント */
+        .fraction-box {
+            display: inline-flex;
+            flex-direction: column;
+            align-items: center;
+            vertical-align: middle;
+            padding: 0 6px;
+            line-height: 1.05;
+        }
+        .fraction-num {
+            border-bottom: 3px solid currentColor;
+            padding-bottom: 3px;
+            width: 100%;
+            text-align: center;
+        }
+        .fraction-den {
+            padding-top: 3px;
+            width: 100%;
+            text-align: center;
+        }
+        .tick-btn {
+            transition: transform 0.12s cubic-bezier(0.34, 1.56, 0.64, 1), background-color 0.12s ease;
+        }
+        .tick-btn:active {
+            transform: scale(0.92);
+        }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col justify-between relative selection:bg-cyan-500 selection:text-slate-950">
+
+    <!-- ネオン制限時間ゲージ -->
+    <div id="lava-container" class="hidden">
+        <div id="lava-line"></div>
+    </div>
+
+    <!-- フローティング演出レイヤー -->
+    <div id="fx-layer" class="fixed inset-0 pointer-events-none z-50 overflow-hidden"></div>
+
+    <!-- ヘッダー（改行崩れ防止のため whitespace-nowrap 適用） -->
+    <header class="relative z-20 w-full max-w-2xl mx-auto px-3 pt-2.5 pb-1 flex items-center justify-between gap-2">
+        <div class="flex items-center gap-2 min-w-0">
+            <div class="w-9 h-9 sm:w-10 sm:h-10 shrink-0 rounded-2xl bg-gradient-to-br from-cyan-400 via-sky-500 to-indigo-600 flex items-center justify-center shadow-lg shadow-cyan-500/30 font-black text-base sm:text-lg text-slate-950">
+                <i class="fa-solid fa-crosshairs"></i>
+            </div>
+            <div class="min-w-0">
+                <div class="flex items-center gap-1.5 flex-wrap">
+                    <h1 class="font-black text-sm sm:text-lg tracking-wider text-white whitespace-nowrap">数直線スナイパー</h1>
+                    <span id="mode-badge" class="text-[10px] font-black px-2 py-0.5 rounded-full bg-cyan-950/90 text-cyan-300 border border-cyan-500/40 whitespace-nowrap">
+                        スコアモード
+                    </span>
+                </div>
+                <p class="text-[10px] text-slate-400 hidden sm:block truncate">仮分数を帯分数に脳内変換して数直線上のエイリアンを撃ち抜け！</p>
+            </div>
+        </div>
+
+        <div class="flex items-center gap-1 sm:gap-1.5 shrink-0">
+            <button id="btn-quit" class="px-2.5 h-9 rounded-xl bg-rose-950/90 hover:bg-rose-900 border border-rose-500/50 text-rose-200 font-black text-xs flex items-center gap-1 transition whitespace-nowrap" title="タイトルへ戻る">
+                <i class="fa-solid fa-right-from-bracket"></i> <span class="hidden sm:inline">やめる</span>
+            </button>
+            <button id="btn-pause" class="px-2.5 h-9 rounded-xl bg-slate-800/90 hover:bg-slate-700 border border-slate-700 text-slate-200 font-black text-xs flex items-center gap-1 transition whitespace-nowrap" title="一時停止">
+                <i class="fa-solid fa-pause"></i> <span class="hidden sm:inline">一時停止</span>
+            </button>
+            <button id="btn-records" class="px-2.5 h-9 rounded-xl bg-amber-950/90 hover:bg-amber-900 border border-amber-500/50 text-amber-300 font-black text-xs flex items-center gap-1 transition whitespace-nowrap" title="歴代記録">
+                <i class="fa-solid fa-trophy"></i> <span class="hidden sm:inline">記録</span>
+            </button>
+            <button id="btn-help" class="w-9 h-9 rounded-xl bg-slate-800/90 hover:bg-slate-700 border border-slate-700 text-slate-200 flex items-center justify-center transition shrink-0" title="遊び方">
+                <i class="fa-solid fa-question text-sm"></i>
+            </button>
+            <button id="btn-bgm" class="w-9 h-9 rounded-xl bg-slate-800/90 hover:bg-slate-700 border border-slate-700 text-emerald-400 flex items-center justify-center transition shrink-0" title="BGM ON/OFF">
+                <i id="icon-bgm" class="fa-solid fa-music text-sm"></i>
+            </button>
+            <button id="btn-sound" class="w-9 h-9 rounded-xl bg-slate-800/90 hover:bg-slate-700 border border-slate-700 text-amber-400 flex items-center justify-center transition shrink-0" title="効果音切替">
+                <i id="icon-sound" class="fa-solid fa-volume-high text-sm"></i>
+            </button>
+        </div>
+    </header>
+
+    <!-- メインコンテンツ -->
+    <main class="relative z-20 flex-1 w-full max-w-2xl mx-auto px-3 py-1 flex flex-col justify-between gap-2">
+
+        <!-- ステータス＆スコアボード -->
+        <section class="bg-slate-900/90 border border-slate-800 rounded-2xl p-2.5 shadow-xl backdrop-blur-md">
+            <div class="flex flex-wrap items-center justify-between gap-2 mb-2">
+                <!-- 難易度切替タブ -->
+                <div class="inline-flex bg-slate-950 p-1 rounded-xl border border-slate-800">
+                    <button id="diff-normal" class="px-2.5 py-1 rounded-lg text-xs font-black transition text-slate-400 hover:text-slate-200 whitespace-nowrap">
+                        ノーマル(分母2〜5)
+                    </button>
+                    <button id="diff-hard" class="px-2.5 py-1 rounded-lg text-xs font-black transition bg-cyan-600 text-white shadow whitespace-nowrap">
+                        ハード(分母2〜9)
+                    </button>
+                </div>
+
+                <!-- プレイヤー名・歴代最大・コイン -->
+                <div class="flex flex-wrap items-center gap-1.5">
+                    <div class="px-2.5 py-1 rounded-full bg-indigo-950/90 border border-indigo-500/40 text-[11px] font-black text-indigo-200 flex items-center gap-1 whitespace-nowrap">
+                        <i class="fa-solid fa-user text-indigo-400"></i> <span id="stat-player-name">ゲスト</span>
+                    </div>
+                    <div class="px-2.5 py-1 rounded-full bg-amber-950/80 border border-amber-500/40 text-[11px] font-black text-amber-300 flex items-center gap-1 whitespace-nowrap">
+                        <i class="fa-solid fa-crown text-amber-400"></i> 歴代最大: <span id="stat-alltime-max">0</span>
+                    </div>
+                    <div class="px-2.5 py-1 rounded-full bg-slate-950 border border-amber-500/40 text-xs font-black text-amber-300 flex items-center gap-1 whitespace-nowrap">
+                        🪙 <span id="stat-coins">500</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 4連メトリクス（文字切れしないよう万・億フォーマット採用） -->
+            <div class="grid grid-cols-2 sm:grid-cols-4 gap-2 text-center">
+                <div class="bg-slate-950/90 border border-pink-500/30 rounded-xl p-2">
+                    <div class="text-[10px] font-black text-pink-400">💥 今回最大一撃</div>
+                    <div id="stat-max-hit" class="text-xs sm:text-sm font-black text-pink-300 whitespace-nowrap mt-0.5">0ダメージ</div>
+                </div>
+                <div class="bg-slate-950/90 border border-slate-800 rounded-xl p-2">
+                    <div class="text-[10px] font-black text-slate-400">TOTAL DAMAGE</div>
+                    <div class="mt-0.5 flex items-baseline justify-center gap-1">
+                        <span id="stat-total-dmg" class="text-xs sm:text-sm font-black text-white whitespace-nowrap">0</span>
+                        <span id="stat-score" class="text-[10px] text-slate-400 font-bold whitespace-nowrap">(0体)</span>
+                    </div>
+                </div>
+                <div class="bg-slate-950/90 border border-slate-800 rounded-xl p-2">
+                    <div class="text-[10px] font-black text-slate-400">TIME (残り時間)</div>
+                    <div id="stat-time" class="text-sm sm:text-base font-black text-emerald-400 mt-0.5">45.0秒</div>
+                </div>
+                <div class="bg-slate-950/90 border border-slate-800 rounded-xl p-2">
+                    <div class="text-[10px] font-black text-slate-400">COMBO</div>
+                    <div id="stat-combo" class="text-sm sm:text-base font-black text-amber-400 mt-0.5">0 連勝</div>
+                </div>
+            </div>
+        </section>
+
+        <!-- エイリアンターゲット＆スッキリ2段階数直線エリア -->
+        <div class="flex flex-col gap-2 my-auto">
+
+            <!-- ターゲットエイリアン表示カード -->
+            <div id="target-card" class="bg-slate-900/95 border-2 border-cyan-500/60 rounded-3xl p-3 sm:p-4 shadow-2xl text-center relative overflow-hidden transition-all duration-300">
+                <div class="flex items-center justify-between mb-0.5">
+                    <span class="text-[10px] font-black text-cyan-400 uppercase tracking-widest flex items-center gap-1">
+                        <i class="fa-solid fa-satellite-dish"></i> ALIEN TARGET
+                    </span>
+                    <span id="target-aura-tag" class="hidden text-[10px] font-black px-2.5 py-0.5 rounded-full bg-amber-500/20 border border-amber-300/60 text-amber-200"></span>
+                </div>
+
+                <div class="flex items-center justify-center gap-5 sm:gap-7 my-0.5">
+                    <div class="flex flex-col items-center">
+                        <div id="alien-emoji" class="text-4xl sm:text-5xl animate-bounce select-none">👾</div>
+                        <span id="alien-rank-label" class="text-[10px] font-black text-fuchsia-400 mt-1">要撃ターゲット</span>
+                    </div>
+                    <div id="target-display" class="text-4xl sm:text-6xl font-black text-white font-mono tracking-tight drop-shadow-[0_0_18px_rgba(34,211,238,0.45)]">
+                        <!-- JSで仮分数を描画 -->
+                    </div>
+                </div>
+
+                <!-- ステータスメッセージ＆ヒント表示バー -->
+                <div id="status-message" class="mt-2 py-1.5 px-3 rounded-xl bg-slate-950/90 border border-slate-800 text-xs sm:text-sm font-black text-cyan-200 min-h-[32px] flex items-center justify-center">
+                    数直線上のエリア（どことどこの間か）をタッチ！
+                </div>
+            </div>
+
+            <!-- STEP 1: 本物のスッキリ数直線（0 〜 10） -->
+            <div class="bg-slate-900/95 border border-slate-700/90 rounded-2xl px-3.5 py-3 shadow-xl">
+                <div class="flex items-center justify-between mb-2">
+                    <span class="text-xs font-black text-cyan-300 flex items-center gap-1.5">
+                        <span class="px-2 py-0.5 rounded bg-cyan-500 text-slate-950 font-black text-[10px]">STEP 1</span>
+                        数直線（0〜10）のどこにあるかタッチ！
+                    </span>
+                    <span id="selected-range-badge" class="text-[11px] font-black text-amber-300">未ロックオン</span>
+                </div>
+
+                <!-- シンプルで美しい数直線バー -->
+                <div class="relative pt-1 pb-6 px-3 select-none">
+                    <!-- 横軸メインライン -->
+                    <div class="relative h-11 bg-slate-950/90 rounded-xl border border-slate-800 flex items-center">
+                        <!-- 中央の光る数直線ライン -->
+                        <div class="absolute inset-x-0 h-1 bg-cyan-500/60 shadow-[0_0_10px_rgba(6,182,212,0.6)] pointer-events-none"></div>
+
+                        <!-- 10個の区間タッチエリア（余計な文字を排除してスッキリ！） -->
+                        <div id="macro-line-container" class="relative z-10 grid grid-cols-10 w-full h-full">
+                            <!-- JSで10区間ヒットボックスを生成 -->
+                        </div>
+
+                        <!-- 0〜10の目盛り線と数字ラベル（11個） -->
+                        <div id="macro-ticks-labels" class="absolute inset-0 pointer-events-none z-20">
+                            <!-- JSで0〜10の目盛りと数字を正確に配置 -->
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- STEP 2: 精密スナイプスコープ（選んだ区間 N 〜 N+1 を分母 d で等分） -->
+            <div id="micro-scope-panel" class="bg-slate-900/95 border-2 border-slate-700/90 rounded-2xl px-3.5 py-3 shadow-xl transition-all duration-200">
+                <div class="flex items-center justify-between mb-2">
+                    <span class="text-xs font-black text-pink-300 flex items-center gap-1.5">
+                        <span class="px-2 py-0.5 rounded bg-pink-500 text-slate-950 font-black text-[10px]">STEP 2</span>
+                        <span id="scope-title-text">ズームスコープ（上の数直線をタッチすると拡大！）</span>
+                    </span>
+                    <span id="scope-denom-badge" class="text-[11px] font-black px-2.5 py-0.5 rounded-full bg-slate-800 text-cyan-300 border border-cyan-500/30">
+                        4等分
+                    </span>
+                </div>
+
+                <!-- 精密数直線目盛りコンテナ -->
+                <div id="micro-ticks-container" class="min-h-[64px] flex items-center justify-between gap-1 px-2 py-2 bg-slate-950 rounded-xl border border-slate-800 relative">
+                    <div class="w-full text-center text-xs font-bold text-slate-400">
+                        ⬆️ 上の数直線をタッチしてスコープを起動しよう！
+                    </div>
+                </div>
+
+                <!-- 補助ボタン（無料ヒント ＆ パス） -->
+                <div class="grid grid-cols-2 gap-2 mt-2.5">
+                    <button id="btn-free-hint" class="py-2 px-3 rounded-xl bg-amber-950/90 hover:bg-amber-900 border border-amber-500/70 text-amber-300 font-black text-xs flex items-center justify-center gap-1.5 transition shadow">
+                        <i class="fa-solid fa-lightbulb text-amber-400"></i> 割り算ヒント(無料)
+                    </button>
+                    <button id="btn-skip" class="py-2 px-3 rounded-xl bg-slate-800/90 hover:bg-slate-700 border border-slate-700 text-slate-300 font-bold text-xs flex items-center justify-center gap-1.5 transition">
+                        <i class="fa-solid fa-forward"></i> パスして次の標的へ
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- サポートアイテム欄（コイン消費） -->
+        <div id="support-panel" class="bg-slate-900/95 border border-cyan-500/40 rounded-2xl p-2.5 shadow-xl backdrop-blur-md">
+            <div class="flex items-center justify-between mb-1.5 px-1">
+                <span class="text-[11px] font-black text-cyan-300 flex items-center gap-1.5">
+                    <i class="fa-solid fa-bolt text-amber-400"></i> サポートアイテム（コイン消費）
+                </span>
+                <span id="aura-badge" class="text-[11px] font-black px-2.5 py-0.5 rounded-full bg-slate-800 text-slate-300 border border-slate-700">
+                    オーラ倍率: ×1.0 (通常)
+                </span>
+            </div>
+            <div class="grid grid-cols-3 gap-2">
+                <button id="btn-laser" class="py-2 px-2 rounded-xl bg-gradient-to-r from-rose-600 to-pink-600 hover:from-rose-500 hover:to-pink-500 text-white font-black text-xs shadow-lg border border-rose-300/40 flex flex-col items-center justify-center gap-0.5 transition active:scale-95">
+                    <div class="flex items-center gap-1 whitespace-nowrap"><i class="fa-solid fa-crosshairs"></i> 自動ロックオン</div>
+                    <span class="text-[10px] bg-black/30 px-2 py-0.5 rounded-full text-amber-300">🪙 150</span>
+                </button>
+                <button id="btn-freeze" class="py-2 px-2 rounded-xl bg-gradient-to-r from-sky-600 to-cyan-600 hover:from-sky-500 hover:to-cyan-500 text-white font-black text-xs shadow-lg border border-sky-300/40 flex flex-col items-center justify-center gap-0.5 transition active:scale-95">
+                    <div class="flex items-center gap-1 whitespace-nowrap"><i class="fa-solid fa-snowflake"></i> 時間凍結+15秒</div>
+                    <span class="text-[10px] bg-black/30 px-2 py-0.5 rounded-full text-amber-300">🪙 100</span>
+                </button>
+                <button id="btn-gacha" class="py-2 px-2 rounded-xl bg-gradient-to-r from-amber-500 via-orange-500 to-fuchsia-600 hover:from-amber-400 hover:to-fuchsia-500 text-white font-black text-xs shadow-lg border border-amber-300/50 flex flex-col items-center justify-center gap-0.5 transition active:scale-95">
+                    <div class="flex items-center gap-1 whitespace-nowrap"><i class="fa-solid fa-gem"></i> SSRカラーガチャ</div>
+                    <span class="text-[10px] bg-black/30 px-2 py-0.5 rounded-full text-amber-200">🪙 80</span>
+                </button>
+            </div>
+        </div>
+    </main>
+
+    <!-- 1. タイトル画面モーダル -->
+    <div id="modal-title" class="fixed inset-0 z-50 bg-slate-950/95 backdrop-blur-md flex items-center justify-center p-4">
+        <div class="w-full max-w-md bg-slate-900 border-2 border-cyan-500/50 rounded-3xl p-6 shadow-2xl text-center">
+            <div class="w-16 h-16 mx-auto mb-3 rounded-2xl bg-gradient-to-br from-cyan-400 via-sky-500 to-indigo-600 flex items-center justify-center shadow-lg shadow-cyan-500/40 font-black text-3xl text-slate-950">
+                <i class="fa-solid fa-crosshairs"></i>
+            </div>
+            <h2 class="text-2xl sm:text-3xl font-black tracking-wider text-white">数直線スナイパー</h2>
+            <p class="text-xs text-slate-400 mt-1 mb-4">50/9 などの仮分数を帯分数に脳内変換して数直線で撃ち抜け！</p>
+
+            <!-- プレイヤー名入力欄（デフォルト空欄） -->
+            <div class="text-left mb-3.5">
+                <label for="input-player-name" class="text-xs font-black text-slate-300 block mb-1">👤 プレイヤー名（ランキングに記録されます）</label>
+                <input id="input-player-name" type="text" value="" placeholder="なまえを入力（空欄でもOK）" maxlength="12" class="w-full px-3.5 py-2 rounded-xl bg-slate-950 border border-slate-700 text-white font-bold text-sm focus:outline-none focus:border-cyan-400 placeholder:text-slate-600">
+            </div>
+
+            <!-- 難易度選択 -->
+            <div class="text-left mb-4">
+                <label class="text-xs font-black text-slate-300 block mb-1.5">🎯 難易度を選択</label>
+                <div class="grid grid-cols-2 gap-2">
+                    <button id="title-diff-normal" class="py-2.5 px-3 rounded-xl font-black text-xs border border-slate-700 bg-slate-800/80 text-slate-400 transition">
+                        🟢 ノーマル<br><span class="text-[10px] font-normal">分母 2〜5・整数 1〜5</span>
+                    </button>
+                    <button id="title-diff-hard" class="py-2.5 px-3 rounded-xl font-black text-xs border-2 border-cyan-400 bg-cyan-950/80 text-cyan-200 transition">
+                        🔥 ハード (おすすめ!)<br><span class="text-[10px] font-normal">50/9 など分母 2〜9・整数 1〜9</span>
+                    </button>
+                </div>
+            </div>
+
+            <!-- 制限時間選択 -->
+            <div class="text-left mb-5">
+                <label class="text-xs font-black text-slate-300 block mb-1.5">⏱️ スコアモードの制限時間</label>
+                <div class="grid grid-cols-3 gap-2">
+                    <button data-time="45" class="title-time-btn py-2 px-2 rounded-xl font-black text-xs border-2 border-cyan-400 bg-cyan-950/80 text-cyan-200 transition">
+                        🐢 45秒<br><span class="text-[10px] font-normal">じっくり</span>
+                    </button>
+                    <button data-time="25" class="title-time-btn py-2 px-2 rounded-xl font-black text-xs border border-slate-700 bg-slate-800/80 text-slate-400 transition">
+                        ⚡ 25秒<br><span class="text-[10px] font-normal">ふつう</span>
+                    </button>
+                    <button data-time="15" class="title-time-btn py-2 px-2 rounded-xl font-black text-xs border border-slate-700 bg-slate-800/80 text-slate-400 transition">
+                        🚀 15秒<br><span class="text-[10px] font-normal">ガチ速</span>
+                    </button>
+                </div>
+            </div>
+
+            <!-- ゲームスタートボタン -->
+            <div class="flex flex-col gap-2.5">
+                <button id="btn-start-score" class="w-full py-3.5 rounded-2xl bg-gradient-to-r from-cyan-400 via-sky-500 to-indigo-500 hover:from-cyan-300 hover:to-indigo-400 text-slate-950 font-black text-sm shadow-lg shadow-cyan-500/30 transition active:scale-95">
+                    🔥 スコアモードで出撃（時間制限＆超ドパ感！）
+                </button>
+                <button id="btn-start-endless" class="w-full py-3 rounded-2xl bg-slate-800 hover:bg-slate-700 border border-slate-600 text-slate-200 font-black text-xs transition active:scale-95">
+                    ☕ 無限モードで出撃（時間無制限でじっくり練習）
+                </button>
+            </div>
+
+            <div class="grid grid-cols-2 gap-2 mt-4 pt-4 border-t border-slate-800">
+                <button id="btn-title-records" class="py-2 rounded-xl bg-amber-950/60 hover:bg-amber-900/80 border border-amber-500/40 text-amber-300 font-bold text-xs">
+                    🏆 歴代記録を見る
+                </button>
+                <button id="btn-title-help" class="py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold text-xs">
+                    ❓ 遊び方・コツ
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 2. 一時停止モーダル -->
+    <div id="modal-pause" class="fixed inset-0 z-50 bg-slate-950/90 backdrop-blur-md hidden items-center justify-center p-4">
+        <div class="w-full max-w-sm bg-slate-900 border border-slate-700 rounded-3xl p-6 text-center shadow-2xl">
+            <h3 class="text-xl font-black text-white mb-2">⏸️ 一時停止中</h3>
+            <p class="text-xs text-slate-400 mb-5">タイマーとネオンゲージはストップしています</p>
+            <div class="flex flex-col gap-2.5">
+                <button id="btn-resume" class="w-full py-3 rounded-xl bg-cyan-500 hover:bg-cyan-400 text-slate-950 font-black text-sm">
+                    ▶️ 迎撃を再開する
+                </button>
+                <button id="btn-pause-records" class="w-full py-2.5 rounded-xl bg-amber-950/80 hover:bg-amber-900 border border-amber-500/40 text-amber-300 font-black text-xs">
+                    🏆 歴代記録を確認する
+                </button>
+                <button id="btn-pause-quit" class="w-full py-2.5 rounded-xl bg-rose-950/80 hover:bg-rose-900 border border-rose-500/40 text-rose-200 font-bold text-xs">
+                    🏠 タイトル画面へ戻る
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 3. 20連勝ごとの区切りモーダル -->
+    <div id="modal-break" class="fixed inset-0 z-50 bg-slate-950/90 backdrop-blur-md hidden items-center justify-center p-4">
+        <div class="w-full max-w-sm bg-slate-900 border-2 border-amber-400/70 rounded-3xl p-6 text-center shadow-2xl">
+            <div class="text-4xl mb-1">🎉</div>
+            <h3 id="break-title" class="text-2xl font-black text-amber-300 mb-1">20連勝達成！！</h3>
+            <p class="text-xs text-slate-300 mb-4">神スナイパー級の集中力！ここでひと息つく？それともさらに記録を伸ばす？</p>
+            <div class="bg-slate-950 border border-slate-800 rounded-2xl p-3 mb-5 text-xs">
+                <div class="text-slate-400">ここまでの累計スコア</div>
+                <div id="break-total-dmg" class="text-base font-black text-pink-300 mt-0.5">0ダメージ</div>
+            </div>
+            <div class="flex flex-col gap-2.5">
+                <button id="btn-break-continue" class="w-full py-3 rounded-xl bg-gradient-to-r from-cyan-400 to-emerald-400 hover:from-cyan-300 hover:to-emerald-300 text-slate-950 font-black text-sm shadow-lg">
+                    🔥 続ける（さらに限界突破！）
+                </button>
+                <button id="btn-break-quit" class="w-full py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-200 font-bold text-xs">
+                    🏠 区切ってやめる（保存してタイトルへ）
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 4. タイムアップ確認＆リトライ選択モーダル -->
+    <div id="modal-timeup" class="fixed inset-0 z-50 bg-slate-950/90 backdrop-blur-md hidden items-center justify-center p-4">
+        <div class="w-full max-w-md bg-slate-900 border-2 border-rose-500/60 rounded-3xl p-6 text-center shadow-2xl">
+            <div class="text-3xl mb-1">⏰</div>
+            <h3 class="text-xl font-black text-rose-400 mb-1">TIME UP!（時間切れ）</h3>
+            <p class="text-xs text-slate-300 mb-3">ターゲット：<span id="timeup-problem" class="font-black text-white text-sm"></span></p>
+
+            <div class="mb-5">
+                <button id="btn-reveal-answer" class="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 border border-amber-500/40 text-amber-300 font-black text-xs transition">
+                    🔑 変換の答えを見る
+                </button>
+                <div id="timeup-answer-box" class="hidden mt-2 p-3 rounded-xl bg-slate-950 border border-cyan-500/40 text-cyan-300 font-black text-sm">
+                    正解: <span id="timeup-solution"></span>
+                </div>
+            </div>
+
+            <div class="flex flex-col sm:flex-row gap-2.5">
+                <button id="btn-timeup-retry" class="flex-1 py-3 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-black text-xs sm:text-sm shadow-lg">
+                    🔄 同じ標的にリトライ！
+                </button>
+                <button id="btn-timeup-next" class="flex-1 py-3 rounded-xl bg-cyan-500 hover:bg-cyan-400 text-slate-950 font-black text-xs sm:text-sm shadow-lg">
+                    ➡️ OK（次の標的へ）
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 5. 歴代記録モーダル -->
+    <div id="modal-records" class="fixed inset-0 z-50 bg-slate-950/90 backdrop-blur-md hidden items-center justify-center p-4">
+        <div class="w-full max-w-md bg-slate-900 border border-amber-500/50 rounded-3xl p-5 shadow-2xl">
+            <div class="flex items-center justify-between mb-4">
+                <h3 class="text-lg font-black text-amber-300 flex items-center gap-2">
+                    <i class="fa-solid fa-trophy"></i> スナイパー歴代記録
+                </h3>
+                <button id="btn-close-records" class="w-8 h-8 rounded-lg bg-slate-800 text-slate-300 hover:bg-slate-700">✕</button>
+            </div>
+
+            <div class="grid grid-cols-2 gap-2.5 mb-4">
+                <div class="bg-slate-950 border border-amber-500/30 rounded-xl p-3">
+                    <div class="text-[10px] font-bold text-amber-400">👑 歴代最大一撃</div>
+                    <div id="rec-max-single" class="text-sm sm:text-base font-black text-white mt-0.5">0ダメージ</div>
+                    <div id="rec-max-formula" class="text-[11px] text-cyan-400 font-bold mt-1 truncate">記録なし</div>
+                    <div id="rec-max-player" class="text-[10px] text-indigo-300 font-bold mt-0.5 truncate">👤 -</div>
+                </div>
+                <div class="bg-slate-950 border border-slate-800 rounded-xl p-3">
+                    <div class="text-[10px] font-bold text-slate-400">🔥 累計撃破 / 最大連勝</div>
+                    <div id="rec-total-solved" class="text-sm sm:text-base font-black text-white mt-0.5">0体撃破</div>
+                    <div id="rec-max-combo" class="text-[11px] text-amber-400 font-bold mt-1">最大 0 連勝</div>
+                </div>
+            </div>
+
+            <div class="text-xs font-black text-slate-300 mb-2">💥 歴代一撃ダメージ TOP 5</div>
+            <div id="rec-ranking-list" class="space-y-1.5 max-h-48 overflow-y-auto pr-1">
+                <!-- JSでランキング描画 -->
+            </div>
+
+            <button id="btn-close-records-bottom" class="mt-4 w-full py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-white font-black text-xs">
+                閉じる
+            </button>
+        </div>
+    </div>
+
+    <!-- 6. 遊び方モーダル -->
+    <div id="modal-help" class="fixed inset-0 z-50 bg-slate-950/90 backdrop-blur-md hidden items-center justify-center p-4">
+        <div class="w-full max-w-md bg-slate-900 border border-slate-700 rounded-3xl p-5 shadow-2xl">
+            <div class="flex items-center justify-between mb-3">
+                <h3 class="text-lg font-black text-white">❓ 遊び方・2段階スナイプのコツ</h3>
+                <button id="btn-close-help" class="w-8 h-8 rounded-lg bg-slate-800 text-slate-300 hover:bg-slate-700">✕</button>
+            </div>
+            <div class="space-y-2.5 text-xs text-slate-300 leading-relaxed">
+                <div class="bg-slate-950 p-3 rounded-xl border border-slate-800">
+                    <div class="font-black text-cyan-400 mb-1">① 仮分数を帯分数に脳内変換！（例：50/9）</div>
+                    50 ÷ 9 ＝ <strong>5 あまり 5</strong> なので、帯分数にすると <strong>「5 と 5/9」</strong> になります。
+                </div>
+                <div class="bg-slate-950 p-3 rounded-xl border border-slate-800">
+                    <div class="font-black text-amber-400 mb-1">② STEP 1：数直線（0〜10）のエリアをタッチ！</div>
+                    「5 と 5/9」は <strong>5 と 6 の間</strong> にあるので、上の数直線の <strong>5 と 6 の間</strong> をそのままタッチします。
+                </div>
+                <div class="bg-slate-950 p-3 rounded-xl border border-slate-800">
+                    <div class="font-black text-pink-400 mb-1">③ STEP 2：ズームした目盛りで分子を狙撃！</div>
+                    5〜6の間が分母に合わせて拡大されるので、あまりの分子（<strong>5</strong>番目の目盛り）をタッチして撃ち抜こう！<br>
+                    ※ノーミスで撃ち抜くと<strong>精密スナイプボーナス（×1.5倍）</strong>が入ります！
+                </div>
+            </div>
+            <button id="btn-close-help-bottom" class="mt-4 w-full py-2.5 rounded-xl bg-cyan-500 hover:bg-cyan-400 text-slate-950 font-black text-xs transition">
+                わかった！
+            </button>
+        </div>
+    </div>
+
+    <script>
+        // ==========================================
+        // 1. サウンド＆チップチューンBGMエンジン
+        // ==========================================
+        const Sound = {
+            enabled: true,
+            bgmEnabled: true,
+            ctx: null,
+            bgmTimer: null,
+            bgmStep: 0,
+            init() {
+                if (!this.ctx) {
+                    const AudioCtx = window.AudioContext || window.webkitAudioContext;
+                    if (AudioCtx) this.ctx = new AudioCtx();
+                }
+                if (this.ctx && this.ctx.state === 'suspended') {
+                    this.ctx.resume();
+                }
+            },
+            startBGM() {
+                this.stopBGM();
+                if (!this.bgmEnabled) return;
+                this.init();
+                const melody = [
+                    440, 523.25, 659.25, 880,
+                    783.99, 659.25, 523.25, 659.25,
+                    587.33, 698.46, 880, 1046.5,
+                    987.77, 783.99, 659.25, 783.99
+                ];
+                const bass = [110, 110, 130.81, 130.81, 146.83, 146.83, 130.81, 164.81];
+                this.bgmTimer = setInterval(() => {
+                    if (!this.bgmEnabled || !State.isPlaying || State.isPaused) return;
+                    try {
+                        if (!this.ctx || this.ctx.state === 'suspended') return;
+                        const now = this.ctx.currentTime;
+                        const note = melody[this.bgmStep % melody.length];
+                        const bassNote = bass[Math.floor(this.bgmStep / 2) % bass.length];
+
+                        const osc = this.ctx.createOscillator();
+                        const gain = this.ctx.createGain();
+                        osc.type = 'triangle';
+                        osc.frequency.setValueAtTime(note, now);
+                        gain.gain.setValueAtTime(0.03, now);
+                        gain.gain.exponentialRampToValueAtTime(0.002, now + 0.15);
+                        osc.connect(gain);
+                        gain.connect(this.ctx.destination);
+                        osc.start(now);
+                        osc.stop(now + 0.15);
+
+                        if (this.bgmStep % 2 === 0) {
+                            const bOsc = this.ctx.createOscillator();
+                            const bGain = this.ctx.createGain();
+                            bOsc.type = 'sine';
+                            bOsc.frequency.setValueAtTime(bassNote, now);
+                            bGain.gain.setValueAtTime(0.04, now);
+                            bGain.gain.exponentialRampToValueAtTime(0.002, now + 0.26);
+                            bOsc.connect(bGain);
+                            bGain.connect(this.ctx.destination);
+                            bOsc.start(now);
+                            bOsc.stop(now + 0.26);
+                        }
+                        this.bgmStep++;
+                    } catch (e) {}
+                }, 185);
+            },
+            stopBGM() {
+                if (this.bgmTimer) {
+                    clearInterval(this.bgmTimer);
+                    this.bgmTimer = null;
+                }
+            },
+            play(type) {
+                if (!this.enabled) return;
+                try {
+                    this.init();
+                    if (!this.ctx) return;
+                    const now = this.ctx.currentTime;
+                    const osc = this.ctx.createOscillator();
+                    const gain = this.ctx.createGain();
+                    osc.connect(gain);
+                    gain.connect(this.ctx.destination);
+
+                    if (type === 'lockon') {
+                        osc.type = 'sine';
+                        osc.frequency.setValueAtTime(660, now);
+                        osc.frequency.exponentialRampToValueAtTime(990, now + 0.08);
+                        gain.gain.setValueAtTime(0.14, now);
+                        gain.gain.exponentialRampToValueAtTime(0.01, now + 0.08);
+                        osc.start(now);
+                        osc.stop(now + 0.08);
+                    } else if (type === 'snipe') {
+                        const notes = [523.25, 659.25, 783.99, 1046.5, 1318.5];
+                        notes.forEach((freq, i) => {
+                            const o = this.ctx.createOscillator();
+                            const g = this.ctx.createGain();
+                            o.type = 'triangle';
+                            o.connect(g);
+                            g.connect(this.ctx.destination);
+                            o.frequency.setValueAtTime(freq, now + i * 0.045);
+                            g.gain.setValueAtTime(0.2, now + i * 0.045);
+                            g.gain.exponentialRampToValueAtTime(0.008, now + i * 0.045 + 0.24);
+                            o.start(now + i * 0.045);
+                            o.stop(now + i * 0.045 + 0.24);
+                        });
+                    } else if (type === 'laser') {
+                        osc.type = 'sawtooth';
+                        osc.frequency.setValueAtTime(1100, now);
+                        osc.frequency.exponentialRampToValueAtTime(160, now + 0.3);
+                        gain.gain.setValueAtTime(0.22, now);
+                        gain.gain.exponentialRampToValueAtTime(0.01, now + 0.3);
+                        osc.start(now);
+                        osc.stop(now + 0.3);
+                    } else if (type === 'gacha') {
+                        const notes = [440, 554.37, 659.25, 880, 1108.73];
+                        notes.forEach((freq, i) => {
+                            const o = this.ctx.createOscillator();
+                            const g = this.ctx.createGain();
+                            o.type = 'sine';
+                            o.connect(g);
+                            g.connect(this.ctx.destination);
+                            o.frequency.setValueAtTime(freq, now + i * 0.045);
+                            g.gain.setValueAtTime(0.18, now + i * 0.045);
+                            g.gain.exponentialRampToValueAtTime(0.008, now + i * 0.045 + 0.22);
+                            o.start(now + i * 0.045);
+                            o.stop(now + i * 0.045 + 0.22);
+                        });
+                    } else if (type === 'yay') {
+                        const fanfare = [523.25, 659.25, 783.99, 1046.50, 1318.51, 1567.98];
+                        fanfare.forEach((freq, i) => {
+                            const o = this.ctx.createOscillator();
+                            const g = this.ctx.createGain();
+                            o.type = 'triangle';
+                            o.connect(g);
+                            g.connect(this.ctx.destination);
+                            o.frequency.setValueAtTime(freq, now + i * 0.045);
+                            g.gain.setValueAtTime(0.24, now + i * 0.045);
+                            g.gain.exponentialRampToValueAtTime(0.008, now + i * 0.045 + 0.35);
+                            o.start(now + i * 0.045);
+                            o.stop(now + i * 0.045 + 0.35);
+                        });
+                        [700, 1150, 1450].forEach((baseFreq) => {
+                            const vOsc = this.ctx.createOscillator();
+                            const vGain = this.ctx.createGain();
+                            vOsc.type = 'sawtooth';
+                            vOsc.connect(vGain);
+                            vGain.connect(this.ctx.destination);
+                            vOsc.frequency.setValueAtTime(baseFreq * 0.85, now + 0.08);
+                            vOsc.frequency.exponentialRampToValueAtTime(baseFreq * 1.25, now + 0.28);
+                            vOsc.frequency.exponentialRampToValueAtTime(baseFreq * 1.15, now + 0.65);
+                            vGain.gain.setValueAtTime(0.06, now + 0.08);
+                            vGain.gain.exponentialRampToValueAtTime(0.001, now + 0.68);
+                            vOsc.start(now + 0.08);
+                            vOsc.stop(now + 0.68);
+                        });
+                    } else if (type === 'wrong') {
+                        osc.type = 'sawtooth';
+                        osc.frequency.setValueAtTime(210, now);
+                        osc.frequency.linearRampToValueAtTime(125, now + 0.22);
+                        gain.gain.setValueAtTime(0.16, now);
+                        gain.gain.exponentialRampToValueAtTime(0.01, now + 0.22);
+                        osc.start(now);
+                        osc.stop(now + 0.22);
+                    }
+                } catch (e) {}
+            }
+        };
+
+        // ==========================================
+        // 2. ネオンカラーテーマ＆SSRオーラ定義
+        // ==========================================
+        const NEON_THEMES = [
+            { name: 'エレクトリックシアン', body: 'rgba(6, 182, 212, 0.38)', line: '#22d3ee', shadow: '0 0 20px #06b6d4', border: 'border-cyan-400/80' },
+            { name: 'サイバーピンク', body: 'rgba(236, 72, 153, 0.38)', line: '#f472b6', shadow: '0 0 20px #ec4899', border: 'border-pink-500/80' },
+            { name: 'ネオンライム', body: 'rgba(132, 204, 22, 0.38)', line: '#a3e635', shadow: '0 0 20px #84cc16', border: 'border-lime-400/80' },
+            { name: 'ハイパーバイオレット', body: 'rgba(139, 92, 246, 0.38)', line: '#a78bfa', shadow: '0 0 20px #8b5cf6', border: 'border-violet-400/80' },
+            { name: 'サンバーストゴールド', body: 'rgba(245, 158, 11, 0.38)', line: '#fbbf24', shadow: '0 0 20px #f59e0b', border: 'border-amber-400/80' }
+        ];
+
+        const AURA_TIERS = [
+            { name: '翠玉ネオン', mult: 1.5, badgeClass: 'bg-emerald-950 text-emerald-300 border-emerald-400', prob: 0.40 },
+            { name: '蒼天サイバー', mult: 2.0, badgeClass: 'bg-cyan-950 text-cyan-300 border-cyan-400', prob: 0.30 },
+            { name: '黄金サンバースト', mult: 3.0, badgeClass: 'bg-amber-950 text-amber-300 border-amber-400', prob: 0.20 },
+            { name: '🌈 SSR虹神オーラ', mult: 5.0, badgeClass: 'bg-gradient-to-r from-pink-600 via-amber-500 to-cyan-500 text-white border-yellow-200', prob: 0.10 }
+        ];
+
+        const ALIEN_ICONS = ['👾', '👽', '🛸', '🐙', '🤖', '🐉'];
+
+        const STORAGE_KEY = 'fraction_sniper_save_v2';
+
+        const State = {
+            playerName: '',
+            mode: 'score',
+            difficulty: 'hard',
+            timeLimit: 45,
+            timeLeft: 45,
+            timerId: null,
+            roundTimeoutId: null,
+            isPlaying: false,
+            isPaused: false,
+            isResolving: false,
+            openedRecordsFromPause: false,
+
+            currentProblem: null,
+            selectedWhole: null,
+            mistakeInRound: false,
+            usedLaserThisRound: false,
+            hintStep: 0,
+
+            coins: 500,
+            combo: 0,
+            solvedCount: 0,
+            totalDamage: 0,
+            maxSingleHit: 0,
+            themeIndex: 0,
+            auraMultiplier: 1.0,
+            auraName: '通常',
+            auraBadgeClass: 'bg-slate-800 text-slate-300 border-slate-700',
+
+            records: {
+                maxSingle: 0,
+                maxFormula: '記録なし',
+                maxPlayer: 'ゲスト',
+                totalSolved: 0,
+                maxCombo: 0,
+                topHits: []
+            }
+        };
+
+        function getDisplayPlayerName() {
+            const trimmed = (State.playerName || '').trim();
+            return trimmed.length > 0 ? trimmed : 'ゲスト';
+        }
+
+        function loadSavedData() {
+            try {
+                const raw = localStorage.getItem(STORAGE_KEY);
+                if (!raw) return;
+                const data = JSON.parse(raw);
+                if (typeof data.playerName === 'string') {
+                    State.playerName = data.playerName === 'ドパガキ' ? '' : data.playerName;
+                }
+                if (typeof data.coins === 'number' && !isNaN(data.coins)) {
+                    State.coins = data.coins;
+                }
+                if (data.records && typeof data.records === 'object') {
+                    State.records.maxSingle = Number(data.records.maxSingle) || 0;
+                    State.records.maxFormula = data.records.maxFormula || '記録なし';
+                    State.records.maxPlayer = (data.records.maxPlayer && data.records.maxPlayer !== 'ドパガキ') ? data.records.maxPlayer : 'ゲスト';
+                    State.records.totalSolved = Number(data.records.totalSolved) || 0;
+                    State.records.maxCombo = Number(data.records.maxCombo) || 0;
+                    if (Array.isArray(data.records.topHits)) {
+                        State.records.topHits = data.records.topHits;
+                    }
+                }
+            } catch (e) {}
+        }
+
+        function saveData() {
+            try {
+                const payload = {
+                    playerName: State.playerName,
+                    coins: State.coins,
+                    records: State.records
+                };
+                localStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
+            } catch (e) {}
+        }
+
+        // ステータス欄で「15,773,439ダメ…」と途切れないように万・億・兆・京でスッキリ表示
+        function formatDamageText(num, compact = false) {
+            const n = Math.floor(num);
+            const suffix = compact ? '' : 'ダメージ';
+            if (n >= 1e16) return `${(n / 1e16).toFixed(2)}京${suffix}`;
+            if (n >= 1e12) return `${(n / 1e12).toFixed(2)}兆${suffix}`;
+            if (n >= 1e8) return `${(n / 1e8).toFixed(2)}億${suffix}`;
+            if (n >= 1e5) return `${(n / 1e4).toFixed(1)}万${suffix}`;
+            return `${n.toLocaleString('ja-JP')}${suffix}`;
+        }
+
+        function resetAuraToDefault() {
+            State.auraMultiplier = 1.0;
+            State.auraName = '通常';
+            State.auraBadgeClass = 'bg-slate-800 text-slate-300 border-slate-700';
+        }
+
+        function applyNeonTheme() {
+            const theme = NEON_THEMES[State.themeIndex % NEON_THEMES.length];
+            const lavaContainer = document.getElementById('lava-container');
+            const lavaLine = document.getElementById('lava-line');
+            if (lavaContainer && lavaLine) {
+                lavaContainer.style.background = `linear-gradient(180deg, ${theme.body} 0%, rgba(15, 23, 42, 0.9) 100%)`;
+                lavaLine.style.background = theme.line;
+                lavaLine.style.boxShadow = `${theme.shadow}, 0 0 36px ${theme.line}`;
+            }
+        }
+
+        function applyTargetAuraVisuals() {
+            const tCard = document.getElementById('target-card');
+            const tTag = document.getElementById('target-aura-tag');
+            const currentTheme = NEON_THEMES[State.themeIndex % NEON_THEMES.length];
+
+            let auraClass = '';
+            if (State.auraMultiplier >= 5.0) {
+                auraClass = 'card-aura-ssr';
+            } else if (State.auraMultiplier >= 3.0) {
+                auraClass = 'card-aura-gold';
+            } else if (State.auraMultiplier > 1.0) {
+                auraClass = `card-aura-boost ${currentTheme.border}`;
+            }
+
+            if (tCard) {
+                tCard.className = `bg-slate-900/95 border-2 border-cyan-500/60 rounded-3xl p-3 sm:p-4 shadow-2xl text-center relative overflow-hidden transition-all duration-300 ${auraClass}`;
+            }
+            if (tTag) {
+                if (State.auraMultiplier > 1.0) {
+                    tTag.classList.remove('hidden');
+                    tTag.textContent = `${State.auraName} ×${State.auraMultiplier.toFixed(1)}倍!`;
+                } else {
+                    tTag.classList.add('hidden');
+                }
+            }
+        }
+
+        function setStatusMessage(html) {
+            const el = document.getElementById('status-message');
+            if (el) el.innerHTML = html;
+        }
+
+        function updateHeaderStats() {
+            document.getElementById('stat-player-name').textContent = getDisplayPlayerName();
+            document.getElementById('stat-coins').textContent = State.coins.toLocaleString('ja-JP');
+            document.getElementById('stat-combo').textContent = `${State.combo} 連勝`;
+            document.getElementById('stat-total-dmg').textContent = formatDamageText(State.totalDamage, true);
+            document.getElementById('stat-score').textContent = `(${State.solvedCount}体)`;
+            document.getElementById('stat-max-hit').textContent = formatDamageText(State.maxSingleHit, false);
+            document.getElementById('stat-alltime-max').textContent = formatDamageText(State.records.maxSingle, true);
+
+            const auraBadge = document.getElementById('aura-badge');
+            if (auraBadge) {
+                const limitNote = State.auraMultiplier > 1.0 ? '・この1問限定!' : '';
+                auraBadge.textContent = `オーラ倍率: ×${State.auraMultiplier.toFixed(1)} (${State.auraName}${limitNote})`;
+                auraBadge.className = `text-[11px] font-black px-2.5 py-0.5 rounded-full border ${State.auraBadgeClass}`;
+            }
+
+            const diffNormalBtn = document.getElementById('diff-normal');
+            const diffHardBtn = document.getElementById('diff-hard');
+            if (State.difficulty === 'normal') {
+                diffNormalBtn.className = 'px-2.5 py-1 rounded-lg text-xs font-black transition bg-emerald-600 text-white shadow whitespace-nowrap';
+                diffHardBtn.className = 'px-2.5 py-1 rounded-lg text-xs font-black transition text-slate-400 hover:text-slate-200 whitespace-nowrap';
+            } else {
+                diffHardBtn.className = 'px-2.5 py-1 rounded-lg text-xs font-black transition bg-cyan-600 text-white shadow whitespace-nowrap';
+                diffNormalBtn.className = 'px-2.5 py-1 rounded-lg text-xs font-black transition text-slate-400 hover:text-slate-200 whitespace-nowrap';
+            }
+        }
+
+        // ==========================================
+        // 3. 問題生成＆スッキリ本物の数直線UI描画
+        // ==========================================
+        function generateProblem() {
+            let denoms, maxWhole;
+            if (State.difficulty === 'normal') {
+                denoms = [2, 3, 4, 5];
+                maxWhole = 5;
+            } else {
+                denoms = [3, 4, 5, 6, 7, 8, 9];
+                maxWhole = 9;
+            }
+
+            const den = denoms[Math.floor(Math.random() * denoms.length)];
+            const whole = Math.floor(Math.random() * maxWhole) + 1;
+            const rem = Math.floor(Math.random() * (den - 1)) + 1;
+            const num = whole * den + rem;
+
+            const html = `<div class="fraction-box"><div class="fraction-num">${num}</div><div class="fraction-den">${den}</div></div>`;
+            const formulaStr = `${num}/${den} = ${whole}と${rem}/${den}`;
+
+            return { num, den, whole, rem, html, formulaStr };
+        }
+
+        // STEP 1: 「0〜1」「1〜2」のようなビジーな文字を廃止し、本物の数直線（0〜10の目盛り）を描画！
+        function renderMacroLine() {
+            const container = document.getElementById('macro-line-container');
+            const ticksContainer = document.getElementById('macro-ticks-labels');
+            container.innerHTML = '';
+            ticksContainer.innerHTML = '';
+
+            // 10個の区間タッチエリア（0〜1, 1〜2, ..., 9〜10）
+            for (let w = 0; w < 10; w++) {
+                const isSelected = State.selectedWhole === w;
+                const segBtn = document.createElement('button');
+                segBtn.type = 'button';
+                segBtn.title = `${w} と ${w + 1} の間`;
+                segBtn.className = `h-full w-full transition-all relative flex items-center justify-center ${
+                    isSelected
+                        ? 'bg-cyan-400/35 border-y-2 border-amber-300 shadow-[inset_0_0_14px_rgba(34,211,238,0.8)]'
+                        : 'hover:bg-cyan-500/20 active:bg-cyan-400/30'
+                }`;
+                if (isSelected) {
+                    segBtn.innerHTML = `<div class="w-2.5 h-2.5 rounded-full bg-amber-300 animate-ping"></div>`;
+                }
+                segBtn.addEventListener('click', () => onSelectMacroInterval(w));
+                container.appendChild(segBtn);
+            }
+
+            // 0 〜 10 の目盛り線と整数ラベル（11箇所）
+            for (let i = 0; i <= 10; i++) {
+                const leftPct = i * 10;
+                const isEdgeOfSelected = State.selectedWhole !== null && (i === State.selectedWhole || i === State.selectedWhole + 1);
+                const tickWrap = document.createElement('div');
+                tickWrap.style.left = `${leftPct}%`;
+                tickWrap.className = 'absolute top-0 bottom-0 -translate-x-1/2 flex flex-col items-center justify-center';
+
+                const tickLine = document.createElement('div');
+                tickLine.className = isEdgeOfSelected
+                    ? 'w-1 h-7 bg-amber-300 rounded-full shadow-[0_0_8px_#fde047]'
+                    : (i % 5 === 0 ? 'w-0.5 h-6 bg-cyan-300' : 'w-0.5 h-4 bg-slate-400');
+
+                const label = document.createElement('span');
+                label.className = `absolute top-12 text-xs sm:text-sm font-black transition-transform ${
+                    isEdgeOfSelected ? 'text-amber-300 scale-125' : 'text-slate-200'
+                }`;
+                label.textContent = i;
+
+                tickWrap.appendChild(tickLine);
+                tickWrap.appendChild(label);
+                ticksContainer.appendChild(tickWrap);
+            }
+        }
+
+        function onSelectMacroInterval(wholeInt) {
+            if (!State.isPlaying || State.isPaused || State.isResolving) return;
+
+            const prob = State.currentProblem;
+            if (wholeInt === prob.whole) {
+                Sound.play('lockon');
+                State.selectedWhole = wholeInt;
+                document.getElementById('selected-range-badge').textContent = `🎯 ${wholeInt} 〜 ${wholeInt + 1} ズーム中！`;
+                setStatusMessage(
+                    `<span class="text-emerald-300">🎯 ロックオン！「${prob.num} ÷ ${prob.den} ＝ ${wholeInt} あまり ？」 ➔ 下の目盛りをタッチ！</span>`
+                );
+                renderMacroLine();
+                renderMicroScope(wholeInt, prob.den);
+            } else {
+                Sound.play('wrong');
+                State.mistakeInRound = true;
+                const hintDir = wholeInt < prob.whole ? 'もっと右（大きい数）だよ！' : 'もっと左（小さい数）だよ！';
+                setStatusMessage(
+                    `<span class="text-rose-400">💦 そこは ${wholeInt} と ${wholeInt + 1} の間だよ！（${prob.num} ÷ ${prob.den} を計算しよう！${hintDir}）</span>`
+                );
+            }
+        }
+
+        // STEP 2: 選んだ整数区間（N 〜 N+1）を拡大したスッキリ数直線！分子の「1, 2, 3...」だけをシンプル表示
+        function renderMicroScope(wholeInt, den) {
+            const container = document.getElementById('micro-ticks-container');
+            container.innerHTML = '';
+
+            document.getElementById('scope-title-text').textContent = `${wholeInt} と ${wholeInt + 1} の間を ${den}等分にズーム中！（分子をタッチ）`;
+            document.getElementById('scope-denom-badge').textContent = `分母 ${den}（${den}等分）`;
+
+            // 背景を貫く水平の数直線バー
+            const lineBar = document.createElement('div');
+            lineBar.className = 'absolute left-6 right-6 top-1/2 -translate-y-1/2 h-1 bg-pink-500/50 pointer-events-none';
+            container.appendChild(lineBar);
+
+            // 左端の整数ラベル (wholeInt)
+            const leftEdge = document.createElement('div');
+            leftEdge.className = 'relative z-10 w-9 h-12 sm:w-11 sm:h-14 rounded-xl bg-slate-900 border-2 border-amber-400/80 text-sm sm:text-lg font-black text-amber-300 flex items-center justify-center shrink-0 shadow';
+            leftEdge.textContent = `${wholeInt}`;
+            container.appendChild(leftEdge);
+
+            // 1 〜 (den-1) のシンプルな分子目盛りボタン
+            for (let r = 1; r < den; r++) {
+                const btn = document.createElement('button');
+                btn.type = 'button';
+                btn.className = 'tick-btn relative z-10 flex-1 h-12 sm:h-14 rounded-xl bg-slate-900/95 hover:bg-pink-600 border border-cyan-500/50 hover:border-yellow-300 text-white flex flex-col items-center justify-center shadow anim-pop group';
+                btn.innerHTML = `
+                    <span class="text-sm sm:text-lg font-black text-cyan-200 group-hover:text-white leading-none">${r}</span>
+                    <div class="w-0.5 h-3 bg-cyan-400 group-hover:bg-yellow-200 rounded-full mt-1"></div>
+                `;
+                btn.addEventListener('click', () => onSnipeTick(r));
+                container.appendChild(btn);
+            }
+
+            // 右端の整数ラベル (wholeInt + 1)
+            const rightEdge = document.createElement('div');
+            rightEdge.className = 'relative z-10 w-9 h-12 sm:w-11 sm:h-14 rounded-xl bg-slate-900 border-2 border-amber-400/80 text-sm sm:text-lg font-black text-amber-300 flex items-center justify-center shrink-0 shadow';
+            rightEdge.textContent = `${wholeInt + 1}`;
+            container.appendChild(rightEdge);
+        }
+
+        function resetMicroScopePlaceholder() {
+            const prob = State.currentProblem;
+            document.getElementById('scope-title-text').textContent = 'ズームスコープ（上の数直線をタッチすると拡大！）';
+            document.getElementById('scope-denom-badge').textContent = `${prob.den}等分`;
+            document.getElementById('selected-range-badge').textContent = '未ロックオン';
+            const container = document.getElementById('micro-ticks-container');
+            container.innerHTML = `
+                <div class="w-full text-center text-xs font-bold text-slate-400 py-2">
+                    ⬆️ まずは上の数直線（0〜10）で <strong>${prob.num}/${prob.den}</strong> が入る場所をタッチしよう！
+                </div>
+            `;
+        }
+
+        function setupNewRound(keepSame = false) {
+            if (!keepSame) {
+                State.currentProblem = generateProblem();
+                State.themeIndex = (State.themeIndex + 1) % NEON_THEMES.length;
+                resetAuraToDefault();
+                applyNeonTheme();
+            }
+            State.selectedWhole = null;
+            State.mistakeInRound = false;
+            State.usedLaserThisRound = false;
+            State.hintStep = 0;
+            State.isResolving = false;
+            State.timeLeft = State.timeLimit;
+
+            document.getElementById('target-display').innerHTML = State.currentProblem.html;
+            document.getElementById('alien-emoji').textContent = ALIEN_ICONS[State.solvedCount % ALIEN_ICONS.length];
+            document.getElementById('alien-rank-label').textContent = State.combo >= 10 ? `🔥 強敵ボス (${State.combo}連勝)` : '要撃ターゲット';
+
+            setStatusMessage('STEP 1：まずは数直線（0〜10）のどこにあるかタッチ！');
+            applyTargetAuraVisuals();
+            renderMacroLine();
+            resetMicroScopePlaceholder();
+            updateHeaderStats();
+            updateTimerUI();
+        }
+
+        // ==========================================
+        // 4. 狙撃判定＆インフレダメージ計算
+        // ==========================================
+        function spawnFloatingText(mainText, subText = '', colorClass = 'text-amber-300') {
+            const layer = document.getElementById('fx-layer');
+            const div = document.createElement('div');
+            div.className = 'floating-dmg text-center';
+            div.innerHTML = `
+                <div class="text-2xl sm:text-4xl font-black ${colorClass} drop-shadow-[0_4px_16px_rgba(0,0,0,0.9)] whitespace-nowrap">${mainText}</div>
+                ${subText ? `<div class="text-xs sm:text-sm font-black text-white bg-slate-950/90 px-3 py-1 rounded-full border border-white/20 mt-1 inline-block">${subText}</div>` : ''}
+            `;
+            layer.appendChild(div);
+            setTimeout(() => div.remove(), 1300);
+        }
+
+        function spawnConfetti(count = 45) {
+            const layer = document.getElementById('fx-layer');
+            const colors = ['#22d3ee', '#f472b6', '#facc15', '#a3e635', '#c084fc', '#fb7185', '#ffffff'];
+            for (let i = 0; i < count; i++) {
+                const piece = document.createElement('div');
+                piece.className = 'confetti-piece';
+                const size = 7 + Math.floor(Math.random() * 8);
+                piece.style.width = `${size}px`;
+                piece.style.height = `${Math.floor(size * 1.4)}px`;
+                piece.style.left = `${Math.random() * 100}vw`;
+                piece.style.backgroundColor = colors[Math.floor(Math.random() * colors.length)];
+                piece.style.setProperty('--drift', `${(Math.random() - 0.5) * 220}px`);
+                piece.style.setProperty('--dur', `${1.4 + Math.random() * 1.3}s`);
+                layer.appendChild(piece);
+                setTimeout(() => piece.remove(), 2800);
+            }
+        }
+
+        function triggerScreenFlash() {
+            const layer = document.getElementById('fx-layer');
+            const flash = document.createElement('div');
+            flash.className = 'gacha-flash';
+            layer.appendChild(flash);
+            setTimeout(() => flash.remove(), 800);
+        }
+
+        function onSnipeTick(selectedRem) {
+            if (!State.isPlaying || State.isPaused || State.isResolving) return;
+
+            const prob = State.currentProblem;
+            if (selectedRem === prob.rem) {
+                completeSnipeHit();
+            } else {
+                Sound.play('wrong');
+                State.mistakeInRound = true;
+                setStatusMessage(
+                    `<span class="text-rose-400">💥 惜しい！ ${prob.num} － (${prob.whole} × ${prob.den}) ＝ あまりの分子はいくつかな？</span>`
+                );
+            }
+        }
+
+        function completeSnipeHit() {
+            if (State.isResolving) return;
+            State.isResolving = true;
+            Sound.play('snipe');
+
+            const prob = State.currentProblem;
+            State.combo++;
+            State.solvedCount++;
+
+            const base = 1800 + Math.pow(prob.num, 1.85) * 45 + prob.den * 250;
+            const comboMult = Math.pow(1.42, Math.min(State.combo, 35));
+            const perfectMult = State.mistakeInRound ? 1.0 : 1.5;
+            const diffMult = State.difficulty === 'hard' ? 2.2 : 1.0;
+            const timeBonus = State.mode === 'score' ? (1 + (State.timeLeft / State.timeLimit) * 1.4) : 1.0;
+
+            const rawDamage = Math.floor(base * comboMult * perfectMult * diffMult * timeBonus * State.auraMultiplier);
+            State.totalDamage += rawDamage;
+            if (rawDamage > State.maxSingleHit) {
+                State.maxSingleHit = rawDamage;
+            }
+
+            let earnedCoins = 0;
+            if (!State.usedLaserThisRound) {
+                earnedCoins = 35 + Math.min(120, State.combo * 8) + (State.mistakeInRound ? 0 : 20);
+                State.coins += earnedCoins;
+            }
+
+            const pName = getDisplayPlayerName();
+
+            State.records.totalSolved++;
+            if (State.combo > State.records.maxCombo) {
+                State.records.maxCombo = State.combo;
+            }
+            if (rawDamage > State.records.maxSingle) {
+                State.records.maxSingle = rawDamage;
+                State.records.maxFormula = prob.formulaStr;
+                State.records.maxPlayer = pName;
+            }
+            State.records.topHits.push({
+                player: pName,
+                damage: rawDamage,
+                formula: prob.formulaStr,
+                combo: State.combo
+            });
+            State.records.topHits.sort((a, b) => b.damage - a.damage);
+            State.records.topHits = State.records.topHits.slice(0, 5);
+            saveData();
+
+            let tierLabel = State.mistakeInRound ? '🎯 SNIPE HIT!' : '🎯 PERFECT SNIPE!!';
+            let colorClass = 'text-cyan-300';
+            if (rawDamage >= 1e12) { tierLabel = '🌌 LIMIT BREAK!!'; colorClass = 'text-fuchsia-300'; spawnConfetti(45); }
+            else if (rawDamage >= 1e8) { tierLabel = '⚡ GODLIKE SNIPE!!'; colorClass = 'text-amber-300'; spawnConfetti(30); }
+            else if (rawDamage >= 1e6) { tierLabel = '🔥 HYPER SNIPE!'; colorClass = 'text-rose-300'; spawnConfetti(15); }
+
+            const dmgStr = formatDamageText(rawDamage, false);
+            const coinNote = earnedCoins > 0 ? ` ＋🪙${earnedCoins}` : '';
+            spawnFloatingText(`${tierLabel} ${dmgStr}`, `${prob.formulaStr} (${State.combo}連勝${coinNote})`, colorClass);
+            setStatusMessage(`<span class="text-emerald-300 font-black">🎉 撃破！「${prob.formulaStr}」 ➔ ${dmgStr}！</span>`);
+
+            updateHeaderStats();
+
+            if (State.combo > 0 && State.combo % 20 === 0) {
+                if (State.roundTimeoutId) clearTimeout(State.roundTimeoutId);
+                State.roundTimeoutId = setTimeout(() => {
+                    State.roundTimeoutId = null;
+                    if (State.isPlaying) openBreakModal();
+                }, 700);
+                return;
+            }
+
+            if (State.roundTimeoutId) clearTimeout(State.roundTimeoutId);
+            State.roundTimeoutId = setTimeout(() => {
+                State.roundTimeoutId = null;
+                if (State.isPlaying && !State.isPaused) setupNewRound(false);
+            }, 850);
+        }
+
+        // ==========================================
+        // 5. 無料ヒント＆サポートアイテム機能
+        // ==========================================
+        function useFreeHint() {
+            if (!State.isPlaying || State.isPaused || State.isResolving) return;
+            const prob = State.currentProblem;
+            State.hintStep = Math.min(2, State.hintStep + 1);
+            Sound.play('lockon');
+
+            if (State.hintStep === 1) {
+                setStatusMessage(
+                    `<span class="text-amber-300 font-black">💡 ヒント①：${prob.den} × ${prob.whole} ＝ ${prob.den * prob.whole} なので、数直線の『 ${prob.whole} と ${prob.whole + 1} の間 』をタッチ！</span>`
+                );
+            } else {
+                setStatusMessage(
+                    `<span class="text-amber-300 font-black">💡 ヒント②：${prob.num} ÷ ${prob.den} ＝ ${prob.whole} あまり ${prob.rem} ➔ 答えは『 ${prob.whole} と ${prob.rem}/${prob.den} 』！</span>`
+                );
+            }
+        }
+
+        function useColorGacha() {
+            if (!State.isPlaying || State.isPaused || State.isResolving) return;
+            const cost = 80;
+            if (State.coins < cost) {
+                Sound.play('wrong');
+                setStatusMessage(`<span class="text-rose-400">コインが足りません！（SSRカラーガチャ: 🪙${cost}）</span>`);
+                return;
+            }
+            State.coins -= cost;
+
+            const r = Math.random();
+            let acc = 0;
+            let picked = AURA_TIERS[0];
+            for (const tier of AURA_TIERS) {
+                acc += tier.prob;
+                if (r <= acc) {
+                    picked = tier;
+                    break;
+                }
+            }
+
+            State.themeIndex = (State.themeIndex + 1 + Math.floor(Math.random() * (NEON_THEMES.length - 1))) % NEON_THEMES.length;
+            State.auraMultiplier = picked.mult;
+            State.auraName = picked.name;
+            State.auraBadgeClass = picked.badgeClass;
+
+            applyNeonTheme();
+            applyTargetAuraVisuals();
+            updateHeaderStats();
+            saveData();
+
+            if (picked.mult >= 3.0) {
+                Sound.play('yay');
+                triggerScreenFlash();
+                spawnConfetti(picked.mult >= 5.0 ? 75 : 40);
+                spawnFloatingText(
+                    `🎉 【 この1問 ×${picked.mult.toFixed(1)} 倍 覚 醒 ！！ 】`,
+                    `${picked.name} ＆ ターゲット発光！イェーイ！！`,
+                    'text-yellow-300'
+                );
+            } else {
+                Sound.play('gacha');
+                spawnConfetti(18);
+                spawnFloatingText(
+                    `💎 ${picked.name} (この1問 ×${picked.mult.toFixed(1)}倍)`,
+                    'スナイパー出力が強化された！',
+                    'text-amber-300'
+                );
+            }
+
+            setStatusMessage(
+                `<span class="text-amber-300 font-black">🎰 ガチャ結果：『${picked.name}』発動！ この1問のダメージが <span class="text-yellow-300">×${picked.mult.toFixed(1)}倍</span>！</span>`
+            );
+        }
+
+        function useAutoLaser() {
+            if (!State.isPlaying || State.isPaused || State.isResolving) return;
+            const cost = 150;
+            if (State.coins < cost) {
+                Sound.play('wrong');
+                setStatusMessage(`<span class="text-rose-400">コインが足りません！（自動ロックオン: 🪙${cost}）</span>`);
+                return;
+            }
+            State.coins -= cost;
+            State.usedLaserThisRound = true;
+            Sound.play('laser');
+
+            const prob = State.currentProblem;
+            State.selectedWhole = prob.whole;
+            renderMacroLine();
+            renderMicroScope(prob.whole, prob.den);
+            updateHeaderStats();
+            completeSnipeHit();
+        }
+
+        function useFreezeTime() {
+            if (!State.isPlaying || State.isPaused || State.isResolving) return;
+            if (State.mode !== 'score') {
+                setStatusMessage('<span class="text-sky-300">無限モードでは時間制限はありません！</span>');
+                return;
+            }
+            const cost = 100;
+            if (State.coins < cost) {
+                Sound.play('wrong');
+                setStatusMessage(`<span class="text-rose-400">コインが足りません！（時間凍結+15秒: 🪙${cost}）</span>`);
+                return;
+            }
+            State.coins -= cost;
+            State.timeLeft = Math.min(State.timeLimit + 15, State.timeLeft + 15);
+            Sound.play('lockon');
+            spawnFloatingText('❄️ TIME +15.0秒!', 'ネオンゲージを押し戻した！', 'text-cyan-300');
+            updateTimerUI();
+            updateHeaderStats();
+            saveData();
+        }
+
+        // ==========================================
+        // 6. タイマー＆ネオンゲージ制御
+        // ==========================================
+        function stopTimerLoop() {
+            if (State.timerId) {
+                clearInterval(State.timerId);
+                State.timerId = null;
+            }
+            if (State.roundTimeoutId) {
+                clearTimeout(State.roundTimeoutId);
+                State.roundTimeoutId = null;
+            }
+        }
+
+        function startTimerLoop() {
+            stopTimerLoop();
+            const lava = document.getElementById('lava-container');
+            if (State.mode === 'endless') {
+                lava.classList.add('hidden');
+                document.getElementById('stat-time').textContent = '∞ 無制限';
+                return;
+            }
+            lava.classList.remove('hidden');
+            applyNeonTheme();
+
+            State.timerId = setInterval(() => {
+                if (!State.isPlaying || State.isPaused || State.isResolving) return;
+                State.timeLeft = Math.max(0, State.timeLeft - 0.1);
+                updateTimerUI();
+
+                if (State.timeLeft <= 0) {
+                    onTimeUp();
+                }
+            }, 100);
+        }
+
+        function updateTimerUI() {
+            const timeEl = document.getElementById('stat-time');
+            const lava = document.getElementById('lava-container');
+            if (State.mode === 'endless') {
+                timeEl.textContent = '∞ 無制限';
+                lava.style.height = '0%';
+                return;
+            }
+            timeEl.textContent = `${State.timeLeft.toFixed(1)}秒`;
+            const ratio = Math.max(0, Math.min(1, 1 - State.timeLeft / State.timeLimit));
+            lava.style.height = `${(ratio * 92).toFixed(1)}%`;
+        }
+
+        function onTimeUp() {
+            State.isPaused = true;
+            State.combo = 0;
+            Sound.play('wrong');
+            updateHeaderStats();
+
+            const prob = State.currentProblem;
+            document.getElementById('timeup-problem').textContent = `${prob.num}/${prob.den}`;
+            document.getElementById('timeup-solution').textContent = `${prob.num} ÷ ${prob.den} ＝ ${prob.whole} あまり ${prob.rem} ➔ 「${prob.whole} と ${prob.rem}/${prob.den}」`;
+
+            document.getElementById('timeup-answer-box').classList.add('hidden');
+            const modal = document.getElementById('modal-timeup');
+            modal.classList.remove('hidden');
+            modal.classList.add('flex');
+        }
+
+        function openBreakModal() {
+            State.isPaused = true;
+            Sound.play('yay');
+            spawnConfetti(55);
+            document.getElementById('break-title').textContent = `🎉 ${State.combo}連勝達成！！`;
+            document.getElementById('break-total-dmg').textContent = formatDamageText(State.totalDamage, false);
+            const m = document.getElementById('modal-break');
+            m.classList.remove('hidden');
+            m.classList.add('flex');
+        }
+
+        function renderRecordsModal() {
+            document.getElementById('rec-max-single').textContent = formatDamageText(State.records.maxSingle, false);
+            document.getElementById('rec-max-formula').textContent = State.records.maxFormula;
+            document.getElementById('rec-max-player').textContent = `👤 ${State.records.maxPlayer || 'ゲスト'}`;
+            document.getElementById('rec-total-solved').textContent = `${State.records.totalSolved}体撃破`;
+            document.getElementById('rec-max-combo').textContent = `最大 ${State.records.maxCombo} 連勝`;
+
+            const list = document.getElementById('rec-ranking-list');
+            list.innerHTML = '';
+            if (State.records.topHits.length === 0) {
+                list.innerHTML = `<div class="text-xs text-slate-500 py-4 text-center">まだ記録がありません。エイリアンを狙撃して大ダメージを出そう！</div>`;
+                return;
+            }
+            State.records.topHits.forEach((item, idx) => {
+                const playerLabel = (item.player && item.player !== 'ドパガキ') ? item.player : 'ゲスト';
+                const row = document.createElement('div');
+                row.className = 'flex items-center justify-between bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs';
+                row.innerHTML = `
+                    <div class="flex items-center gap-2 truncate">
+                        <span class="font-black text-amber-400">#${idx + 1}</span>
+                        <span class="px-1.5 py-0.5 rounded bg-indigo-950 border border-indigo-500/40 text-[10px] font-black text-indigo-200 whitespace-nowrap">👤 ${playerLabel}</span>
+                        <span class="font-bold text-slate-200 truncate">${item.formula}</span>
+                    </div>
+                    <div class="font-black text-pink-400 whitespace-nowrap ml-2">${formatDamageText(item.damage, false)}</div>
+                `;
+                list.appendChild(row);
+            });
+        }
+
+        // ==========================================
+        // 7. イベントリスナー登録
+        // ==========================================
+        window.addEventListener('DOMContentLoaded', () => {
+            loadSavedData();
+            const nameInputEl = document.getElementById('input-player-name');
+            if (nameInputEl) {
+                nameInputEl.value = State.playerName || '';
+                nameInputEl.addEventListener('input', () => {
+                    State.playerName = nameInputEl.value.trim();
+                    updateHeaderStats();
+                    saveData();
+                });
+            }
+
+            document.getElementById('btn-free-hint').addEventListener('click', useFreeHint);
+            document.getElementById('btn-skip').addEventListener('click', () => {
+                if (!State.isPlaying || State.isPaused || State.isResolving) return;
+                Sound.play('lockon');
+                State.combo = 0;
+                setupNewRound(false);
+            });
+            document.getElementById('btn-gacha').addEventListener('click', useColorGacha);
+            document.getElementById('btn-laser').addEventListener('click', useAutoLaser);
+            document.getElementById('btn-freeze').addEventListener('click', useFreezeTime);
+
+            document.getElementById('diff-normal').addEventListener('click', () => {
+                if (State.difficulty === 'normal') return;
+                State.difficulty = 'normal';
+                Sound.play('lockon');
+                if (State.isPlaying) setupNewRound(false);
+                else updateHeaderStats();
+            });
+            document.getElementById('diff-hard').addEventListener('click', () => {
+                if (State.difficulty === 'hard') return;
+                State.difficulty = 'hard';
+                Sound.play('lockon');
+                if (State.isPlaying) setupNewRound(false);
+                else updateHeaderStats();
+            });
+
+            const titleNormal = document.getElementById('title-diff-normal');
+            const titleHard = document.getElementById('title-diff-hard');
+            titleNormal.addEventListener('click', () => {
+                State.difficulty = 'normal';
+                Sound.play('lockon');
+                titleNormal.className = 'py-2.5 px-3 rounded-xl font-black text-xs border-2 border-emerald-400 bg-emerald-950/80 text-emerald-200 transition';
+                titleHard.className = 'py-2.5 px-3 rounded-xl font-black text-xs border border-slate-700 bg-slate-800/80 text-slate-400 transition';
+                updateHeaderStats();
+            });
+            titleHard.addEventListener('click', () => {
+                State.difficulty = 'hard';
+                Sound.play('lockon');
+                titleHard.className = 'py-2.5 px-3 rounded-xl font-black text-xs border-2 border-cyan-400 bg-cyan-950/80 text-cyan-200 transition';
+                titleNormal.className = 'py-2.5 px-3 rounded-xl font-black text-xs border border-slate-700 bg-slate-800/80 text-slate-400 transition';
+                updateHeaderStats();
+            });
+
+            document.querySelectorAll('.title-time-btn').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    Sound.play('lockon');
+                    State.timeLimit = parseInt(btn.dataset.time, 10);
+                    document.querySelectorAll('.title-time-btn').forEach(b => {
+                        b.className = b === btn
+                            ? 'title-time-btn py-2 px-2 rounded-xl font-black text-xs border-2 border-cyan-400 bg-cyan-950/80 text-cyan-200 transition'
+                            : 'title-time-btn py-2 px-2 rounded-xl font-black text-xs border border-slate-700 bg-slate-800/80 text-slate-400 transition';
+                    });
+                });
+            });
+
+            function startGame(mode) {
+                const nameInput = document.getElementById('input-player-name');
+                if (nameInput) {
+                    State.playerName = nameInput.value.trim();
+                }
+                saveData();
+
+                Sound.play('snipe');
+                State.mode = mode;
+                State.isPlaying = true;
+                State.isPaused = false;
+                State.isResolving = false;
+                State.combo = 0;
+                State.solvedCount = 0;
+                State.totalDamage = 0;
+                State.maxSingleHit = 0;
+                resetAuraToDefault();
+
+                const modeBadge = document.getElementById('mode-badge');
+                if (mode === 'score') {
+                    modeBadge.textContent = `スコアモード(${State.timeLimit}秒)`;
+                    modeBadge.className = 'text-[10px] font-black px-2 py-0.5 rounded-full bg-cyan-950/90 text-cyan-300 border border-cyan-500/40 whitespace-nowrap';
+                } else {
+                    modeBadge.textContent = '無限モード(無制限)';
+                    modeBadge.className = 'text-[10px] font-black px-2 py-0.5 rounded-full bg-indigo-950/90 text-indigo-300 border border-indigo-500/40 whitespace-nowrap';
+                }
+
+                document.getElementById('modal-title').classList.add('hidden');
+                setupNewRound(false);
+                startTimerLoop();
+                Sound.startBGM();
+            }
+
+            document.getElementById('btn-start-score').addEventListener('click', () => startGame('score'));
+            document.getElementById('btn-start-endless').addEventListener('click', () => startGame('endless'));
+
+            function returnToTitle() {
+                Sound.play('lockon');
+                stopTimerLoop();
+                Sound.stopBGM();
+                State.isPlaying = false;
+                State.isPaused = false;
+                State.isResolving = false;
+                const lava = document.getElementById('lava-container');
+                lava.classList.add('hidden');
+                lava.style.height = '0%';
+                document.getElementById('modal-pause').classList.add('hidden');
+                document.getElementById('modal-pause').classList.remove('flex');
+                document.getElementById('modal-break').classList.add('hidden');
+                document.getElementById('modal-break').classList.remove('flex');
+                document.getElementById('modal-timeup').classList.add('hidden');
+                document.getElementById('modal-timeup').classList.remove('flex');
+                document.getElementById('modal-title').classList.remove('hidden');
+                saveData();
+            }
+
+            document.getElementById('btn-quit').addEventListener('click', returnToTitle);
+            document.getElementById('btn-pause-quit').addEventListener('click', returnToTitle);
+            document.getElementById('btn-break-quit').addEventListener('click', returnToTitle);
+
+            document.getElementById('btn-break-continue').addEventListener('click', () => {
+                Sound.play('snipe');
+                const m = document.getElementById('modal-break');
+                m.classList.add('hidden');
+                m.classList.remove('flex');
+                State.isPaused = false;
+                setupNewRound(false);
+            });
+
+            document.getElementById('btn-pause').addEventListener('click', () => {
+                if (!State.isPlaying) return;
+                Sound.play('lockon');
+                State.isPaused = true;
+                const m = document.getElementById('modal-pause');
+                m.classList.remove('hidden');
+                m.classList.add('flex');
+            });
+
+            document.getElementById('btn-resume').addEventListener('click', () => {
+                Sound.play('lockon');
+                State.isPaused = false;
+                const m = document.getElementById('modal-pause');
+                m.classList.add('hidden');
+                m.classList.remove('flex');
+            });
+
+            document.getElementById('btn-reveal-answer').addEventListener('click', () => {
+                Sound.play('lockon');
+                document.getElementById('timeup-answer-box').classList.remove('hidden');
+            });
+
+            document.getElementById('btn-timeup-retry').addEventListener('click', () => {
+                Sound.play('lockon');
+                const m = document.getElementById('modal-timeup');
+                m.classList.add('hidden');
+                m.classList.remove('flex');
+                State.isPaused = false;
+                setupNewRound(true);
+            });
+
+            document.getElementById('btn-timeup-next').addEventListener('click', () => {
+                Sound.play('lockon');
+                const m = document.getElementById('modal-timeup');
+                m.classList.add('hidden');
+                m.classList.remove('flex');
+                State.isPaused = false;
+                setupNewRound(false);
+            });
+
+            function openRecords(fromPause = false) {
+                Sound.play('lockon');
+                State.openedRecordsFromPause = fromPause;
+                if (State.isPlaying) State.isPaused = true;
+                renderRecordsModal();
+                const m = document.getElementById('modal-records');
+                m.classList.remove('hidden');
+                m.classList.add('flex');
+            }
+
+            function closeRecords() {
+                Sound.play('lockon');
+                const m = document.getElementById('modal-records');
+                m.classList.add('hidden');
+                m.classList.remove('flex');
+                if (State.isPlaying && !State.openedRecordsFromPause) {
+                    const pauseModal = document.getElementById('modal-pause');
+                    if (pauseModal.classList.contains('hidden')) {
+                        State.isPaused = false;
+                    }
+                }
+            }
+
+            document.getElementById('btn-records').addEventListener('click', () => openRecords(false));
+            document.getElementById('btn-title-records').addEventListener('click', () => openRecords(false));
+            document.getElementById('btn-pause-records').addEventListener('click', () => openRecords(true));
+            document.getElementById('btn-close-records').addEventListener('click', closeRecords);
+            document.getElementById('btn-close-records-bottom').addEventListener('click', closeRecords);
+
+            function openHelp() {
+                Sound.play('lockon');
+                if (State.isPlaying) State.isPaused = true;
+                const m = document.getElementById('modal-help');
+                m.classList.remove('hidden');
+                m.classList.add('flex');
+            }
+            function closeHelp() {
+                Sound.play('lockon');
+                const m = document.getElementById('modal-help');
+                m.classList.add('hidden');
+                m.classList.remove('flex');
+                if (State.isPlaying && document.getElementById('modal-pause').classList.contains('hidden')) {
+                    State.isPaused = false;
+                }
+            }
+
+            document.getElementById('btn-help').addEventListener('click', openHelp);
+            document.getElementById('btn-title-help').addEventListener('click', openHelp);
+            document.getElementById('btn-close-help').addEventListener('click', closeHelp);
+            document.getElementById('btn-close-help-bottom').addEventListener('click', closeHelp);
+
+            document.getElementById('btn-bgm').addEventListener('click', () => {
+                Sound.bgmEnabled = !Sound.bgmEnabled;
+                const icon = document.getElementById('icon-bgm');
+                const btn = document.getElementById('btn-bgm');
+                if (Sound.bgmEnabled) {
+                    icon.className = 'fa-solid fa-music text-sm';
+                    btn.className = 'w-9 h-9 rounded-xl bg-slate-800/90 hover:bg-slate-700 border border-slate-700 text-emerald-400 flex items-center justify-center transition shrink-0';
+                    Sound.play('lockon');
+                    if (State.isPlaying) Sound.startBGM();
+                } else {
+                    icon.className = 'fa-solid fa-music text-sm text-slate-500 opacity-50';
+                    btn.className = 'w-9 h-9 rounded-xl bg-slate-800/90 hover:bg-slate-700 border border-slate-700 text-slate-500 flex items-center justify-center transition shrink-0';
+                    Sound.stopBGM();
+                }
+            });
+
+            document.getElementById('btn-sound').addEventListener('click', () => {
+                Sound.enabled = !Sound.enabled;
+                const icon = document.getElementById('icon-sound');
+                icon.className = Sound.enabled ? 'fa-solid fa-volume-high text-sm' : 'fa-solid fa-volume-xmark text-sm text-slate-500';
+                if (Sound.enabled) Sound.play('lockon');
+            });
+
+            State.currentProblem = generateProblem();
+            renderMacroLine();
+            resetMicroScopePlaceholder();
+            updateHeaderStats();
+        });
+    </script>
+</body>
+</html>
