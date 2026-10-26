@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>MATH ARCADE - 算数ゲーム・センター</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@700;900&family=Noto+Sans+JP:wght@700;900&display=swap" rel="stylesheet">
+    <style>
+        * {
+            box-sizing: border-box;
+            user-select: none;
+            -webkit-user-select: none;
+            -webkit-touch-callout: none;
+        }
+        body {
+            font-family: 'Inter', 'Noto Sans JP', sans-serif;
+            background-color: #040711;
+            color: #f8fafc;
+            overflow-x: hidden;
+        }
+        .arcade-window {
+            background: linear-gradient(180deg, rgba(16, 42, 115, 0.94) 0%, rgba(8, 18, 60, 0.96) 55%, rgba(4, 9, 32, 0.98) 100%);
+            border: 2.5px solid #cbd5e1;
+            box-shadow: 
+                inset 0 0 0 2px rgba(15, 23, 42, 0.9),
+                0 10px 28px rgba(0, 0, 0, 0.75);
+            border-radius: 16px;
+        }
+        .game-card {
+            background: linear-gradient(180deg, rgba(30, 64, 175, 0.8) 0%, rgba(15, 32, 92, 0.92) 100%);
+            border: 2px solid #94a3b8;
+            transition: transform 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease;
+        }
+        .game-card:hover {
+            border-color: #facc15;
+            transform: translateY(-3px);
+            box-shadow: 0 0 24px rgba(250, 204, 21, 0.4);
+        }
+        .game-card:active {
+            transform: scale(0.97);
+        }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col justify-between p-4 relative selection:bg-cyan-500 selection:text-slate-950">
+
+    <!-- ヘッダー -->
+    <header class="w-full max-w-2xl mx-auto pt-4 pb-2 text-center">
+        <div class="inline-flex items-center justify-center w-14 h-14 rounded-2xl bg-gradient-to-br from-amber-400 via-orange-500 to-pink-600 border-2 border-white shadow-lg text-3xl mb-2">
+            🕹️
+        </div>
+        <h1 class="text-2xl sm:text-3xl font-black tracking-wider text-white">MATH ARCADE</h1>
+        <p class="text-xs text-cyan-300 mt-1">〜 算数ゲーム・ポータルセンター 〜</p>
+    </header>
+
+    <!-- メインメニューリスト -->
+    <main class="w-full max-w-2xl mx-auto my-auto py-3 space-y-3">
+
+        <!-- 1. ファイナル・フラクション -->
+        <a href="final_fraction.html" class="game-card block p-4 sm:p-5 rounded-2xl text-left relative overflow-hidden group">
+            <div class="flex items-center justify-between gap-3">
+                <div class="flex items-center gap-3">
+                    <div class="w-12 h-12 rounded-xl bg-blue-600/90 border border-blue-300 flex items-center justify-center text-2xl shrink-0 shadow">
+                        ⚔️
+                    </div>
+                    <div>
+                        <div class="flex items-center gap-2 flex-wrap">
+                            <h2 class="text-base sm:text-lg font-black text-amber-300">FINAL FRACTION</h2>
+                            <span class="text-[10px] font-black px-2 py-0.5 rounded-full bg-blue-950 text-cyan-300 border border-cyan-400/50">約分スラッシュ</span>
+                        </div>
+                        <p class="text-xs text-slate-300 mt-1">巨大分数をFF風コマンド（÷2, ÷12...）で一刀両断！おうぎ形360°特訓対応。</p>
+                    </div>
+                </div>
+                <div class="text-amber-400 text-xl font-black group-hover:translate-x-1 transition-transform">
+                    ▶
+                </div>
+            </div>
+        </a>
+
+        <!-- 2. MAKE 10 -->
+        <a href="make10_game.html" class="game-card block p-4 sm:p-5 rounded-2xl text-left relative overflow-hidden group">
+            <div class="flex items-center justify-between gap-3">
+                <div class="flex items-center gap-3">
+                    <div class="w-12 h-12 rounded-xl bg-emerald-600/90 border border-emerald-300 flex items-center justify-center text-xl font-black text-white shrink-0 shadow">
+                        10
+                    </div>
+                    <div>
+                        <div class="flex items-center gap-2 flex-wrap">
+                            <h2 class="text-base sm:text-lg font-black text-amber-300">MAKE 10 パズル</h2>
+                            <span class="text-[10px] font-black px-2 py-0.5 rounded-full bg-emerald-950 text-emerald-300 border border-emerald-400/50">四則演算・連続計算</span>
+                        </div>
+                        <p class="text-xs text-slate-300 mt-1">4つの数字を組み合わせて「10」を作る算数パズル！インフレダメージ＆カラーガチャ付き。</p>
+                    </div>
+                </div>
+                <div class="text-amber-400 text-xl font-black group-hover:translate-x-1 transition-transform">
+                    ▶
+                </div>
+            </div>
+        </a>
+
+        <!-- 3. フラクションマスター（仮分数・帯分数） -->
+        <a href="fraction_game.html" class="game-card block p-4 sm:p-5 rounded-2xl text-left relative overflow-hidden group">
+            <div class="flex items-center justify-between gap-2">
+                <div class="flex items-center gap-3">
+                    <div class="w-12 h-12 rounded-xl bg-purple-600/90 border border-purple-300 flex items-center justify-center text-xl font-black text-white shrink-0 shadow">
+                        ⅒
+                    </div>
+                    <div>
+                        <div class="flex items-center gap-2 flex-wrap">
+                            <h2 class="text-base sm:text-lg font-black text-amber-300">フラクションマスター</h2>
+                            <span class="text-[10px] font-black px-2 py-0.5 rounded-full bg-purple-950 text-purple-300 border border-purple-400/50">仮分数 ⇄ 帯分数</span>
+                        </div>
+                        <p class="text-xs text-slate-300 mt-1">仮分数と帯分数を超速スピード変換！タイムアタックでハイスコアを目指そう。</p>
+                    </div>
+                </div>
+                <div class="text-amber-400 text-xl font-black group-hover:translate-x-1 transition-transform">
+                    ▶
+                </div>
+            </div>
+        </a>
+
+        <!-- 4. 数直線スナイパー -->
+        <a href="fraction_sniper_game.html" class="game-card block p-4 sm:p-5 rounded-2xl text-left relative overflow-hidden group">
+            <div class="flex items-center justify-between gap-3">
+                <div class="flex items-center gap-3">
+                    <div class="w-12 h-12 rounded-xl bg-cyan-600/90 border border-cyan-300 flex items-center justify-center text-xl text-white shrink-0 shadow">
+                        <i class="fa-solid fa-crosshairs"></i>
+                    </div>
+                    <div>
+                        <div class="flex items-center gap-2 flex-wrap">
+                            <h2 class="text-base sm:text-lg font-black text-amber-300">数直線スナイパー</h2>
+                            <span class="text-[10px] font-black px-2 py-0.5 rounded-full bg-cyan-950 text-cyan-300 border border-cyan-400/50">数直線・小数/分数</span>
+                        </div>
+                        <p class="text-xs text-slate-300 mt-1">仮分数を脳内変換して数直線上のエイリアンを高精度で撃ち抜く迎撃戦！</p>
+                    </div>
+                </div>
+                <div class="text-amber-400 text-xl font-black group-hover:translate-x-1 transition-transform">
+                    ▶
+                </div>
+            </div>
+        </a>
+
+    </main>
+
+    <!-- フッター -->
+    <footer class="w-full max-w-2xl mx-auto py-3 text-center text-xs text-slate-500">
+        MATH ARCADE PORTAL &copy; 2026
+    </footer>
+
+</body>
+</html>
