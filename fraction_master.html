@@ -1,0 +1,1454 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>フラクションマスター - 仮分数・帯分数変換バトル</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@700;900&family=Noto+Sans+JP:wght@700;900&display=swap" rel="stylesheet">
+    <style>
+        * {
+            box-sizing: border-box;
+            user-select: none;
+            -webkit-user-select: none;
+            -webkit-touch-callout: none;
+        }
+        body {
+            font-family: 'Inter', 'Noto Sans JP', sans-serif;
+            background-color: #060913;
+            color: #f8fafc;
+            overflow-x: hidden;
+        }
+        /* ネオン制限時間ゲージ */
+        #lava-container {
+            position: fixed;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            height: 0%;
+            z-index: 5;
+            pointer-events: none;
+            transition: height 0.1s linear, background 0.4s ease;
+            background: linear-gradient(180deg, rgba(236, 72, 153, 0.42) 0%, rgba(15, 23, 42, 0.85) 100%);
+            background-image: 
+                linear-gradient(rgba(255, 255, 255, 0.06) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(255, 255, 255, 0.06) 1px, transparent 1px);
+            background-size: 28px 28px;
+        }
+        #lava-line {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 4px;
+            background: #f472b6;
+            box-shadow: 0 0 20px #ec4899, 0 0 40px #ec4899;
+        }
+        /* 選択ボタン演出 */
+        .choice-btn {
+            transition: transform 0.12s cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 0.12s ease, background 0.12s ease;
+        }
+        .choice-btn:active {
+            transform: scale(0.95);
+        }
+        /* ポップアニメーション */
+        @keyframes popIn {
+            0% { transform: scale(0.75); opacity: 0.3; }
+            70% { transform: scale(1.06); }
+            100% { transform: scale(1); opacity: 1; }
+        }
+        .anim-pop {
+            animation: popIn 0.2s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+        }
+        /* フローティングダメージ・スコア演出 */
+        @keyframes floatUp {
+            0% { transform: translate(-50%, 0) scale(0.7); opacity: 0; }
+            20% { transform: translate(-50%, -18px) scale(1.12); opacity: 1; }
+            80% { transform: translate(-50%, -55px) scale(1); opacity: 1; }
+            100% { transform: translate(-50%, -80px) scale(0.9); opacity: 0; }
+        }
+        .floating-dmg {
+            position: fixed;
+            left: 50%;
+            top: 42%;
+            z-index: 60;
+            pointer-events: none;
+            animation: floatUp 1.2s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+        }
+        @keyframes confettiFall {
+            0% { transform: translate3d(0, -10vh, 0) rotate(0deg); opacity: 1; }
+            85% { opacity: 1; }
+            100% { transform: translate3d(var(--drift, 40px), 105vh, 0) rotate(720deg); opacity: 0; }
+        }
+        .confetti-piece {
+            position: fixed;
+            top: -20px;
+            z-index: 70;
+            pointer-events: none;
+            border-radius: 3px;
+            animation: confettiFall var(--dur, 2.2s) cubic-bezier(0.25, 0.46, 0.45, 0.94) forwards;
+        }
+        @keyframes screenFlash {
+            0% { opacity: 0.85; }
+            100% { opacity: 0; }
+        }
+        .gacha-flash {
+            position: fixed;
+            inset: 0;
+            z-index: 65;
+            pointer-events: none;
+            background: radial-gradient(circle, rgba(253, 224, 71, 0.85) 0%, rgba(236, 72, 153, 0.65) 50%, rgba(6, 182, 212, 0) 100%);
+            animation: screenFlash 0.75s ease-out forwards;
+        }
+        @keyframes rainbowGlow {
+            0% { border-color: #f472b6; box-shadow: 0 0 22px rgba(244, 114, 182, 0.85), inset 0 0 14px rgba(244, 114, 182, 0.35); }
+            25% { border-color: #facc15; box-shadow: 0 0 26px rgba(250, 204, 21, 0.9), inset 0 0 16px rgba(250, 204, 21, 0.4); }
+            50% { border-color: #4ade80; box-shadow: 0 0 22px rgba(74, 222, 128, 0.85), inset 0 0 14px rgba(74, 222, 128, 0.35); }
+            75% { border-color: #22d3ee; box-shadow: 0 0 26px rgba(34, 211, 238, 0.9), inset 0 0 16px rgba(34, 211, 238, 0.4); }
+            100% { border-color: #f472b6; box-shadow: 0 0 22px rgba(244, 114, 182, 0.85), inset 0 0 14px rgba(244, 114, 182, 0.35); }
+        }
+        .card-aura-ssr {
+            background: linear-gradient(135deg, rgba(80, 7, 36, 0.9), rgba(15, 23, 42, 0.92), rgba(8, 51, 68, 0.9)) !important;
+            animation: rainbowGlow 1.6s linear infinite !important;
+        }
+        @keyframes goldGlow {
+            0%, 100% { border-color: #fbbf24; box-shadow: 0 0 20px rgba(251, 191, 36, 0.75), inset 0 0 12px rgba(251, 191, 36, 0.28); }
+            50% { border-color: #fef08a; box-shadow: 0 0 28px rgba(254, 240, 138, 0.95), inset 0 0 18px rgba(254, 240, 138, 0.45); }
+        }
+        .card-aura-gold {
+            background: linear-gradient(135deg, rgba(69, 26, 3, 0.92), rgba(15, 23, 42, 0.95)) !important;
+            animation: goldGlow 1.4s ease-in-out infinite !important;
+        }
+        .card-aura-boost {
+            box-shadow: 0 0 16px rgba(34, 211, 238, 0.55), inset 0 0 10px rgba(34, 211, 238, 0.2);
+        }
+        /* 分数コンポーネント用スタイル */
+        .fraction-box {
+            display: inline-flex;
+            flex-direction: column;
+            align-items: center;
+            vertical-align: middle;
+            padding: 0 4px;
+        }
+        .fraction-num {
+            border-bottom: 3px solid currentColor;
+            padding-bottom: 2px;
+            width: 100%;
+            text-align: center;
+        }
+        .fraction-den {
+            padding-top: 2px;
+            width: 100%;
+            text-align: center;
+        }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col justify-between relative selection:bg-pink-500 selection:text-white">
+
+    <!-- 下から迫り上がるネオン制限時間ゲージ -->
+    <div id="lava-container" class="hidden">
+        <div id="lava-line"></div>
+    </div>
+
+    <!-- フローティング演出レイヤー -->
+    <div id="fx-layer" class="fixed inset-0 pointer-events-none z-50 overflow-hidden"></div>
+
+    <!-- ヘッダー -->
+    <header class="relative z-20 w-full max-w-2xl mx-auto px-3 pt-2.5 pb-1 flex items-center justify-between gap-2">
+        <div class="flex items-center gap-2.5">
+            <div class="w-10 h-10 rounded-2xl bg-gradient-to-br from-amber-400 via-orange-500 to-pink-600 flex items-center justify-center shadow-lg shadow-orange-500/30 font-black text-lg text-slate-950">
+                ⅒
+            </div>
+            <div>
+                <div class="flex items-center gap-2">
+                    <h1 class="font-black text-base sm:text-lg tracking-wider text-white">フラクションマスター</h1>
+                    <span id="mode-badge" class="text-[10px] font-black px-2 py-0.5 rounded-full bg-emerald-950/90 text-emerald-300 border border-emerald-500/40">
+                        タイムアタック
+                    </span>
+                </div>
+                <p class="text-[10px] text-slate-400 hidden sm:block">仮分数 ⇄ 帯分数 超速スピード変換バトル</p>
+            </div>
+        </div>
+
+        <div class="flex items-center gap-1.5">
+            <button id="btn-quit" class="px-2.5 h-9 rounded-xl bg-rose-950/90 hover:bg-rose-900 border border-rose-500/50 text-rose-200 font-black text-xs flex items-center gap-1 transition" title="タイトルへ戻る">
+                <i class="fa-solid fa-right-from-bracket"></i> <span class="hidden sm:inline">やめる</span>
+            </button>
+            <button id="btn-pause" class="px-2.5 h-9 rounded-xl bg-slate-800/90 hover:bg-slate-700 border border-slate-700 text-slate-200 font-black text-xs flex items-center gap-1 transition" title="一時停止">
+                <i class="fa-solid fa-pause"></i> <span class="hidden sm:inline">一時停止</span>
+            </button>
+            <button id="btn-records" class="px-2.5 h-9 rounded-xl bg-amber-950/90 hover:bg-amber-900 border border-amber-500/50 text-amber-300 font-black text-xs flex items-center gap-1 transition" title="歴代記録">
+                <i class="fa-solid fa-trophy"></i> <span class="hidden sm:inline">記録</span>
+            </button>
+            <button id="btn-help" class="w-9 h-9 rounded-xl bg-slate-800/90 hover:bg-slate-700 border border-slate-700 text-slate-200 flex items-center justify-center transition" title="遊び方">
+                <i class="fa-solid fa-question text-sm"></i>
+            </button>
+            <button id="btn-bgm" class="w-9 h-9 rounded-xl bg-slate-800/90 hover:bg-slate-700 border border-slate-700 text-emerald-400 flex items-center justify-center transition" title="BGM ON/OFF">
+                <i id="icon-bgm" class="fa-solid fa-music text-sm"></i>
+            </button>
+            <button id="btn-sound" class="w-9 h-9 rounded-xl bg-slate-800/90 hover:bg-slate-700 border border-slate-700 text-amber-400 flex items-center justify-center transition" title="効果音切替">
+                <i id="icon-sound" class="fa-solid fa-volume-high text-sm"></i>
+            </button>
+        </div>
+    </header>
+
+    <!-- メインコンテンツ -->
+    <main class="relative z-20 flex-1 w-full max-w-2xl mx-auto px-3 py-1.5 flex flex-col justify-between gap-3">
+
+        <!-- ステータス＆スコアボード -->
+        <section class="bg-slate-900/90 border border-slate-800 rounded-2xl p-2.5 shadow-xl backdrop-blur-md">
+            <div class="flex flex-wrap items-center justify-between gap-2 mb-2">
+                <!-- 変換モード選択表示 -->
+                <div id="rule-badge" class="px-3 py-1 rounded-xl bg-indigo-950 border border-indigo-500/40 text-xs font-black text-indigo-300 flex items-center gap-1.5">
+                    <i class="fa-solid fa-shuffle text-indigo-400"></i> モード: <span id="txt-rule-name">仮分数 ➔ 帯分数</span>
+                </div>
+
+                <!-- 歴代最大一撃 ＆ プレイヤー名 ＆ コイン -->
+                <div class="flex flex-wrap items-center gap-1.5">
+                    <div class="px-2.5 py-1 rounded-full bg-indigo-950/90 border border-indigo-500/40 text-[11px] font-black text-indigo-200 flex items-center gap-1">
+                        <i class="fa-solid fa-user text-indigo-400"></i> <span id="stat-player-name">ゲスト</span>
+                    </div>
+                    <div class="px-2.5 py-1 rounded-full bg-amber-950/80 border border-amber-500/40 text-[11px] font-black text-amber-300 flex items-center gap-1">
+                        <i class="fa-solid fa-crown text-amber-400"></i> 歴代最大: <span id="stat-alltime-max">0ダメージ</span>
+                    </div>
+                    <div class="px-2.5 py-1 rounded-full bg-slate-950 border border-amber-500/40 text-xs font-black text-amber-300 flex items-center gap-1">
+                        🪙 <span id="stat-coins">500</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 4連メトリクス -->
+            <div class="grid grid-cols-2 sm:grid-cols-4 gap-2 text-center">
+                <div class="bg-slate-950/90 border border-pink-500/30 rounded-xl p-2">
+                    <div class="text-[10px] font-black text-pink-400">💥 今回最大ダメージ</div>
+                    <div id="stat-max-hit" class="text-xs sm:text-sm font-black text-pink-300 truncate mt-0.5">0ダメージ</div>
+                </div>
+                <div class="bg-slate-950/90 border border-slate-800 rounded-xl p-2">
+                    <div class="text-[10px] font-black text-slate-400">TOTAL SCORE</div>
+                    <div class="mt-0.5 flex items-baseline justify-center gap-1">
+                        <span id="stat-total-dmg" class="text-xs sm:text-sm font-black text-white truncate">0ダメージ</span>
+                        <span id="stat-score" class="text-[10px] text-slate-400 font-bold">(0問)</span>
+                    </div>
+                </div>
+                <div class="bg-slate-950/90 border border-slate-800 rounded-xl p-2">
+                    <div class="text-[10px] font-black text-slate-400">TIME (残り時間)</div>
+                    <div id="stat-time" class="text-sm sm:text-base font-black text-emerald-400 mt-0.5">45.0秒</div>
+                </div>
+                <div class="bg-slate-950/90 border border-slate-800 rounded-xl p-2">
+                    <div class="text-[10px] font-black text-slate-400">COMBO</div>
+                    <div id="stat-combo" class="text-sm sm:text-base font-black text-amber-400 mt-0.5">0 連勝</div>
+                </div>
+            </div>
+        </section>
+
+        <!-- ゲーム出題＆選択肢エリア -->
+        <div class="flex flex-col gap-3 my-auto py-2">
+            <!-- 出題カード -->
+            <div id="question-card" class="bg-slate-900/95 border-2 border-indigo-500/50 rounded-3xl p-5 shadow-2xl text-center relative overflow-hidden transition-all duration-300">
+                <div class="absolute top-2 left-3 text-[10px] font-black text-indigo-400 uppercase tracking-widest">Question</div>
+                <div id="question-aura-tag" class="hidden absolute top-2 right-3 text-[10px] font-black px-2 py-0.5 rounded-full bg-amber-500/20 border border-amber-300/60 text-amber-200"></div>
+                <div class="text-xs font-bold text-slate-400 mb-2" id="question-prompt-label">次の分数を帯分数に変換せよ！</div>
+                
+                <!-- 問題の分数表示 -->
+                <div id="question-display" class="my-3 flex items-center justify-center gap-2 text-4xl sm:text-6xl font-black text-white font-mono">
+                    <!-- JSで動的描画 -->
+                </div>
+            </div>
+
+            <!-- 4択ボタン（グリッド） -->
+            <div id="choices-container" class="grid grid-cols-2 gap-2.5 sm:gap-3">
+                <!-- JSで動的描画 -->
+            </div>
+        </div>
+
+        <!-- サポートアイテム＆ガチャ欄 -->
+        <div id="support-panel" class="bg-slate-900/95 border border-indigo-500/40 rounded-2xl p-2.5 shadow-xl backdrop-blur-md">
+            <div class="flex items-center justify-between mb-1.5 px-1">
+                <span class="text-[11px] font-black text-indigo-300 flex items-center gap-1.5">
+                    <i class="fa-solid fa-bolt text-amber-400"></i> サポートアイテム（コイン消費）
+                </span>
+                <span id="aura-badge" class="text-[11px] font-black px-2.5 py-0.5 rounded-full bg-slate-800 text-slate-300 border border-slate-700">
+                    オーラ倍率: ×1.0 (通常)
+                </span>
+            </div>
+            <div class="grid grid-cols-3 gap-2">
+                <button id="btn-skip" class="py-2 px-2 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-black text-xs shadow-lg border border-emerald-300/40 flex flex-col items-center justify-center gap-0.5 transition active:scale-95">
+                    <div class="flex items-center gap-1"><i class="fa-solid fa-forward"></i> 問題スキップ</div>
+                    <span class="text-[10px] bg-black/30 px-2 py-0.5 rounded-full text-amber-300">🪙 50</span>
+                </button>
+                <button id="btn-freeze" class="py-2 px-2 rounded-xl bg-gradient-to-r from-sky-600 to-cyan-600 hover:from-sky-500 hover:to-cyan-500 text-white font-black text-xs shadow-lg border border-sky-300/40 flex flex-col items-center justify-center gap-0.5 transition active:scale-95">
+                    <div class="flex items-center gap-1"><i class="fa-solid fa-snowflake"></i> 時間凍結+15秒</div>
+                    <span class="text-[10px] bg-black/30 px-2 py-0.5 rounded-full text-amber-300">🪙 100</span>
+                </button>
+                <button id="btn-gacha" class="py-2 px-2 rounded-xl bg-gradient-to-r from-amber-500 via-orange-500 to-fuchsia-600 hover:from-amber-400 hover:to-fuchsia-500 text-white font-black text-xs shadow-lg border border-amber-300/50 flex flex-col items-center justify-center gap-0.5 transition active:scale-95">
+                    <div class="flex items-center gap-1"><i class="fa-solid fa-gem"></i> SSRカラーガチャ</div>
+                    <span class="text-[10px] bg-black/30 px-2 py-0.5 rounded-full text-amber-200">🪙 80</span>
+                </button>
+            </div>
+        </div>
+    </main>
+
+    <!-- 1. タイトル画面モーダル -->
+    <div id="modal-title" class="fixed inset-0 z-50 bg-slate-950/95 backdrop-blur-md flex items-center justify-center p-4">
+        <div class="w-full max-w-md bg-slate-900 border-2 border-indigo-500/50 rounded-3xl p-6 shadow-2xl text-center">
+            <div class="w-16 h-16 mx-auto mb-3 rounded-2xl bg-gradient-to-br from-amber-400 via-orange-500 to-pink-600 flex items-center justify-center shadow-lg shadow-orange-500/40 font-black text-3xl text-slate-950">
+                ⅒
+            </div>
+            <h2 class="text-2xl sm:text-3xl font-black tracking-wider text-white">フラクションマスター</h2>
+            <p class="text-xs text-slate-400 mt-1 mb-4">仮分数と帯分数を超速変換して巨大ダメージを叩き出せ！</p>
+
+            <!-- プレイヤー名入力 -->
+            <div class="text-left mb-4">
+                <label for="input-player-name" class="text-xs font-black text-slate-300 block mb-1">👤 プレイヤー名（ランキングに記録されます）</label>
+                <input id="input-player-name" type="text" value="" placeholder="なまえを入力（空欄でもOK）" maxlength="12" class="w-full px-3.5 py-2.5 rounded-xl bg-slate-950 border border-slate-700 text-white font-bold text-sm focus:outline-none focus:border-indigo-500 placeholder:text-slate-600">
+            </div>
+
+            <!-- 変換ルール選択 -->
+            <div class="text-left mb-4">
+                <label class="text-xs font-black text-slate-300 block mb-1.5">🎯 変換ルール選択</label>
+                <div class="grid grid-cols-3 gap-2">
+                    <button data-rule="improper_to_mixed" class="title-rule-btn py-2 px-1 rounded-xl font-black text-xs border-2 border-indigo-400 bg-indigo-950/80 text-indigo-200 transition">
+                        仮 ➔ 帯<br><span class="text-[10px] font-normal">基本</span>
+                    </button>
+                    <button data-rule="mixed_to_improper" class="title-rule-btn py-2 px-1 rounded-xl font-black text-xs border border-slate-700 bg-slate-800/80 text-slate-400 transition">
+                        帯 ➔ 仮<br><span class="text-[10px] font-normal">逆変換</span>
+                    </button>
+                    <button data-rule="mix" class="title-rule-btn py-2 px-1 rounded-xl font-black text-xs border border-slate-700 bg-slate-800/80 text-slate-400 transition">
+                        ランダム<br><span class="text-[10px] font-normal">ミックス</span>
+                    </button>
+                </div>
+            </div>
+
+            <!-- 制限時間選択 -->
+            <div class="text-left mb-5">
+                <label class="text-xs font-black text-slate-300 block mb-1.5">⏱️ 制限時間選択</label>
+                <div class="grid grid-cols-3 gap-2">
+                    <button data-time="45" class="title-time-btn py-2 px-2 rounded-xl font-black text-xs border-2 border-cyan-400 bg-cyan-950/80 text-cyan-200 transition">
+                        🐢 45秒<br><span class="text-[10px] font-normal">じっくり</span>
+                    </button>
+                    <button data-time="25" class="title-time-btn py-2 px-2 rounded-xl font-black text-xs border border-slate-700 bg-slate-800/80 text-slate-400 transition">
+                        ⚡ 25秒<br><span class="text-[10px] font-normal">ふつう</span>
+                    </button>
+                    <button data-time="15" class="title-time-btn py-2 px-2 rounded-xl font-black text-xs border border-slate-700 bg-slate-800/80 text-slate-400 transition">
+                        🚀 15秒<br><span class="text-[10px] font-normal">ガチ速</span>
+                    </button>
+                </div>
+            </div>
+
+            <!-- スタートボタン -->
+            <div class="flex flex-col gap-2.5">
+                <button id="btn-start-score" class="w-full py-3.5 rounded-2xl bg-gradient-to-r from-amber-500 via-orange-500 to-pink-600 hover:from-amber-400 hover:to-pink-500 text-slate-950 font-black text-sm shadow-lg shadow-orange-500/30 transition active:scale-95">
+                    🔥 スコアモードで始める（時間制限＆超ドパ感！）
+                </button>
+                <button id="btn-start-endless" class="w-full py-3 rounded-2xl bg-slate-800 hover:bg-slate-700 border border-slate-600 text-slate-200 font-black text-xs transition active:scale-95">
+                    ☕ 無限モードで始める（時間無制限でじっくり練習）
+                </button>
+            </div>
+
+            <div class="grid grid-cols-2 gap-2 mt-4 pt-4 border-t border-slate-800">
+                <button id="btn-title-records" class="py-2 rounded-xl bg-amber-950/60 hover:bg-amber-900/80 border border-amber-500/40 text-amber-300 font-bold text-xs">
+                    🏆 歴代記録を見る
+                </button>
+                <button id="btn-title-help" class="py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold text-xs">
+                    ❓ 遊び方・ルール
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 2. 一時停止モーダル -->
+    <div id="modal-pause" class="fixed inset-0 z-50 bg-slate-950/90 backdrop-blur-md hidden items-center justify-center p-4">
+        <div class="w-full max-w-sm bg-slate-900 border border-slate-700 rounded-3xl p-6 text-center shadow-2xl">
+            <h3 class="text-xl font-black text-white mb-2">⏸️ 一時停止中</h3>
+            <p class="text-xs text-slate-400 mb-5">タイマーとネオンゲージはストップしています</p>
+            <div class="flex flex-col gap-2.5">
+                <button id="btn-resume" class="w-full py-3 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-black text-sm">
+                    ▶️ ゲームを再開する
+                </button>
+                <button id="btn-pause-records" class="w-full py-2.5 rounded-xl bg-amber-950/80 hover:bg-amber-900 border border-amber-500/40 text-amber-300 font-black text-xs">
+                    🏆 歴代記録を確認する
+                </button>
+                <button id="btn-pause-quit" class="w-full py-2.5 rounded-xl bg-rose-950/80 hover:bg-rose-900 border border-rose-500/40 text-rose-200 font-bold text-xs">
+                    🏠 タイトル画面へ戻る
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 3. 20連勝ごとの休憩モーダル（続ける / やめる） -->
+    <div id="modal-break" class="fixed inset-0 z-50 bg-slate-950/90 backdrop-blur-md hidden items-center justify-center p-4">
+        <div class="w-full max-w-sm bg-slate-900 border-2 border-amber-500/60 rounded-3xl p-6 text-center shadow-2xl">
+            <div class="text-4xl mb-1">🎉</div>
+            <h3 id="break-title" class="text-2xl font-black text-amber-300 mb-1">20連勝達成！！</h3>
+            <p class="text-xs text-slate-300 mb-4">すごい集中力！ここですこし休憩する？それともさらに限界突破を目指す？</p>
+            <div class="bg-slate-950 border border-slate-800 rounded-2xl p-3 mb-5 text-xs">
+                <div class="text-slate-400">ここまでの累計スコア</div>
+                <div id="break-total-dmg" class="text-base font-black text-pink-300 mt-0.5">0ダメージ</div>
+            </div>
+            <div class="flex flex-col gap-2.5">
+                <button id="btn-break-continue" class="w-full py-3 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 text-slate-950 font-black text-sm shadow-lg">
+                    🚀 さらに限界突破する！（続ける）
+                </button>
+                <button id="btn-break-quit" class="w-full py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-300 font-bold text-xs">
+                    🏠 区切ってやめる（保存してタイトルへ）
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 4. タイムアップ確認モーダル -->
+    <div id="modal-timeup" class="fixed inset-0 z-50 bg-slate-950/90 backdrop-blur-md hidden items-center justify-center p-4">
+        <div class="w-full max-w-md bg-slate-900 border-2 border-rose-500/60 rounded-3xl p-6 text-center shadow-2xl">
+            <div class="text-3xl mb-1">⏰</div>
+            <h3 class="text-xl font-black text-rose-400 mb-1">TIME UP!（時間切れ）</h3>
+            <p class="text-xs text-slate-300 mb-4">お疲れ様でした！今回の最終スコアと記録を確認しよう。</p>
+            <div class="bg-slate-950 p-3 rounded-xl border border-slate-800 mb-5">
+                <div class="text-xs text-slate-400">連勝記録: <span id="timeup-combo" class="font-black text-amber-400">0 連勝</span></div>
+                <div class="text-sm font-black text-pink-300 mt-1" id="timeup-total-dmg">0ダメージ</div>
+            </div>
+            <button id="btn-timeup-ok" class="w-full py-3 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-black text-sm shadow-lg">
+                🏆 記録を確認する（タイトルへ）
+            </button>
+        </div>
+    </div>
+
+    <!-- 5. 歴代記録モーダル -->
+    <div id="modal-records" class="fixed inset-0 z-50 bg-slate-950/90 backdrop-blur-md hidden items-center justify-center p-4">
+        <div class="w-full max-w-md bg-slate-900 border border-amber-500/50 rounded-3xl p-5 shadow-2xl">
+            <div class="flex items-center justify-between mb-4">
+                <h3 class="text-lg font-black text-amber-300 flex items-center gap-2">
+                    <i class="fa-solid fa-trophy"></i> 歴代ハイスコア記録
+                </h3>
+                <button id="btn-close-records" class="w-8 h-8 rounded-lg bg-slate-800 text-slate-300 hover:bg-slate-700">✕</button>
+            </div>
+
+            <div class="grid grid-cols-2 gap-2.5 mb-4">
+                <div class="bg-slate-950 border border-amber-500/30 rounded-xl p-3">
+                    <div class="text-[10px] font-bold text-amber-400">👑 歴代最大一撃</div>
+                    <div id="rec-max-single" class="text-sm sm:text-base font-black text-white mt-0.5">0ダメージ</div>
+                    <div id="rec-max-player" class="text-[10px] text-indigo-300 font-bold mt-1 truncate">👤 -</div>
+                </div>
+                <div class="bg-slate-950 border border-slate-800 rounded-xl p-3">
+                    <div class="text-[10px] font-bold text-slate-400">🔥 累計正解 / 最大連勝</div>
+                    <div id="rec-total-solved" class="text-sm sm:text-base font-black text-white mt-0.5">0問クリア</div>
+                    <div id="rec-max-combo" class="text-[11px] text-amber-400 font-bold mt-1">最大 0 連勝</div>
+                </div>
+            </div>
+
+            <div class="text-xs font-black text-slate-300 mb-2">💥 歴代ハイスコアランキング TOP 5</div>
+            <div id="rec-ranking-list" class="space-y-1.5 max-h-48 overflow-y-auto pr-1">
+                <!-- JSでランキング描画 -->
+            </div>
+
+            <button id="btn-close-records-bottom" class="mt-4 w-full py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-white font-black text-xs">
+                閉じる
+            </button>
+        </div>
+    </div>
+
+    <!-- 6. 遊び方モーダル -->
+    <div id="modal-help" class="fixed inset-0 z-50 bg-slate-950/90 backdrop-blur-md hidden items-center justify-center p-4">
+        <div class="w-full max-w-md bg-slate-900 border border-slate-700 rounded-3xl p-5 shadow-2xl">
+            <div class="flex items-center justify-between mb-3">
+                <h3 class="text-lg font-black text-white">❓ 遊び方・変換のコツ</h3>
+                <button id="btn-close-help" class="w-8 h-8 rounded-lg bg-slate-800 text-slate-300 hover:bg-slate-700">✕</button>
+            </div>
+            <div class="space-y-2.5 text-xs text-slate-300 leading-relaxed">
+                <div class="bg-slate-950 p-3 rounded-xl border border-slate-800">
+                    <div class="font-black text-cyan-400 mb-1">① 仮分数 ➔ 帯分数 の変換</div>
+                    例：<span class="font-mono text-white">7/3</span> の場合、7÷3＝2あまり1 なので、整数部分は <span class="font-mono text-white">2</span>、分母はそのまま <span class="font-mono text-white">3</span>、分子はあまりの <span class="font-mono text-white">1</span> で、答えは <span class="font-mono text-white">2 1/3</span>！
+                </div>
+                <div class="bg-slate-950 p-3 rounded-xl border border-slate-800">
+                    <div class="font-black text-pink-400 mb-1">② 帯分数 ➔ 仮分数 の変換</div>
+                    例：<span class="font-mono text-white">2 1/3</span> の場合、整数部分×分母＋分子（2×3＋1＝7）を計算し、分母をそのままにして <span class="font-mono text-white">7/3</span>！
+                </div>
+                <div class="bg-slate-950 p-3 rounded-xl border border-slate-800">
+                    <div class="font-black text-amber-400 mb-1">③ 超ドパ感！1問限定SSRカラーガチャ</div>
+                    連続正解（COMBO）や「SSRカラーガチャ（🪙80）」で<strong>この1問のダメージ倍率が最大×5.0倍（出題カードと選択肢が虹色に発光！）</strong>に爆増！20連勝ごとに休憩チャンスがあるよ！
+                </div>
+            </div>
+            <button id="btn-close-help-bottom" class="mt-4 w-full py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-black text-xs transition">
+                わかった！
+            </button>
+        </div>
+    </div>
+
+    <script>
+        // ==========================================
+        // 1. サウンド＆チップチューンBGMエンジン
+        // ==========================================
+        const Sound = {
+            enabled: true,
+            bgmEnabled: true,
+            ctx: null,
+            bgmTimer: null,
+            bgmStep: 0,
+            init() {
+                if (!this.ctx) {
+                    const AudioCtx = window.AudioContext || window.webkitAudioContext;
+                    if (AudioCtx) this.ctx = new AudioCtx();
+                }
+                if (this.ctx && this.ctx.state === 'suspended') {
+                    this.ctx.resume();
+                }
+            },
+            startBGM() {
+                this.stopBGM();
+                if (!this.bgmEnabled) return;
+                this.init();
+                const melody = [
+                    440, 523.25, 659.25, 783.99,
+                    587.33, 698.46, 880, 698.46,
+                    493.88, 587.33, 783.99, 587.33,
+                    523.25, 659.25, 987.77, 783.99
+                ];
+                const bass = [110, 110, 130.81, 130.81, 98, 98, 110, 110];
+                this.bgmTimer = setInterval(() => {
+                    if (!this.bgmEnabled || !State.isPlaying || State.isPaused) return;
+                    try {
+                        if (!this.ctx || this.ctx.state === 'suspended') return;
+                        const now = this.ctx.currentTime;
+                        const note = melody[this.bgmStep % melody.length];
+                        const bassNote = bass[Math.floor(this.bgmStep / 2) % bass.length];
+
+                        const osc = this.ctx.createOscillator();
+                        const gain = this.ctx.createGain();
+                        osc.type = 'triangle';
+                        osc.frequency.setValueAtTime(note, now);
+                        gain.gain.setValueAtTime(0.03, now);
+                        gain.gain.exponentialRampToValueAtTime(0.002, now + 0.15);
+                        osc.connect(gain);
+                        gain.connect(this.ctx.destination);
+                        osc.start(now);
+                        osc.stop(now + 0.15);
+
+                        if (this.bgmStep % 2 === 0) {
+                            const bOsc = this.ctx.createOscillator();
+                            const bGain = this.ctx.createGain();
+                            bOsc.type = 'sine';
+                            bOsc.frequency.setValueAtTime(bassNote, now);
+                            bGain.gain.setValueAtTime(0.04, now);
+                            bGain.gain.exponentialRampToValueAtTime(0.002, now + 0.25);
+                            bOsc.connect(bGain);
+                            bGain.connect(this.ctx.destination);
+                            bOsc.start(now);
+                            bOsc.stop(now + 0.25);
+                        }
+                        this.bgmStep++;
+                    } catch (e) {}
+                }, 180);
+            },
+            stopBGM() {
+                if (this.bgmTimer) {
+                    clearInterval(this.bgmTimer);
+                    this.bgmTimer = null;
+                }
+            },
+            play(type) {
+                if (!this.enabled) return;
+                try {
+                    this.init();
+                    if (!this.ctx) return;
+                    const now = this.ctx.currentTime;
+                    const osc = this.ctx.createOscillator();
+                    const gain = this.ctx.createGain();
+                    osc.connect(gain);
+                    gain.connect(this.ctx.destination);
+
+                    if (type === 'tap') {
+                        osc.type = 'sine';
+                        osc.frequency.setValueAtTime(580, now);
+                        osc.frequency.exponentialRampToValueAtTime(740, now + 0.06);
+                        gain.gain.setValueAtTime(0.12, now);
+                        gain.gain.exponentialRampToValueAtTime(0.01, now + 0.06);
+                        osc.start(now);
+                        osc.stop(now + 0.06);
+                    } else if (type === 'correct') {
+                        const notes = [523.25, 659.25, 783.99, 1046.5];
+                        notes.forEach((freq, i) => {
+                            const o = this.ctx.createOscillator();
+                            const g = this.ctx.createGain();
+                            o.type = 'triangle';
+                            o.connect(g);
+                            g.connect(this.ctx.destination);
+                            o.frequency.setValueAtTime(freq, now + i * 0.05);
+                            g.gain.setValueAtTime(0.18, now + i * 0.05);
+                            g.gain.exponentialRampToValueAtTime(0.008, now + i * 0.05 + 0.22);
+                            o.start(now + i * 0.05);
+                            o.stop(now + i * 0.05 + 0.22);
+                        });
+                    } else if (type === 'gacha') {
+                        const notes = [440, 554.37, 659.25, 880, 1108.73, 1318.51];
+                        notes.forEach((freq, i) => {
+                            const o = this.ctx.createOscillator();
+                            const g = this.ctx.createGain();
+                            o.type = 'sine';
+                            o.connect(g);
+                            g.connect(this.ctx.destination);
+                            o.frequency.setValueAtTime(freq, now + i * 0.04);
+                            g.gain.setValueAtTime(0.2, now + i * 0.04);
+                            g.gain.exponentialRampToValueAtTime(0.008, now + i * 0.04 + 0.2);
+                            o.start(now + i * 0.04);
+                            o.stop(now + i * 0.04 + 0.2);
+                        });
+                    } else if (type === 'yay') {
+                        // 「イェーイ！」風の明るいファンファーレ＆歓声シンセ合成
+                        const fanfare = [523.25, 659.25, 783.99, 1046.50, 1318.51, 1567.98];
+                        fanfare.forEach((freq, i) => {
+                            const o = this.ctx.createOscillator();
+                            const g = this.ctx.createGain();
+                            o.type = 'triangle';
+                            o.connect(g);
+                            g.connect(this.ctx.destination);
+                            o.frequency.setValueAtTime(freq, now + i * 0.045);
+                            g.gain.setValueAtTime(0.24, now + i * 0.045);
+                            g.gain.exponentialRampToValueAtTime(0.008, now + i * 0.045 + 0.35);
+                            o.start(now + i * 0.045);
+                            o.stop(now + i * 0.045 + 0.35);
+                        });
+                        [700, 1150, 1450].forEach((baseFreq) => {
+                            const vOsc = this.ctx.createOscillator();
+                            const vGain = this.ctx.createGain();
+                            vOsc.type = 'sawtooth';
+                            vOsc.connect(vGain);
+                            vGain.connect(this.ctx.destination);
+                            vOsc.frequency.setValueAtTime(baseFreq * 0.85, now + 0.08);
+                            vOsc.frequency.exponentialRampToValueAtTime(baseFreq * 1.25, now + 0.28);
+                            vOsc.frequency.exponentialRampToValueAtTime(baseFreq * 1.15, now + 0.65);
+                            vGain.gain.setValueAtTime(0.06, now + 0.08);
+                            vGain.gain.exponentialRampToValueAtTime(0.001, now + 0.68);
+                            vOsc.start(now + 0.08);
+                            vOsc.stop(now + 0.68);
+                        });
+                    } else if (type === 'wrong') {
+                        osc.type = 'sawtooth';
+                        osc.frequency.setValueAtTime(220, now);
+                        osc.frequency.linearRampToValueAtTime(120, now + 0.22);
+                        gain.gain.setValueAtTime(0.16, now);
+                        gain.gain.exponentialRampToValueAtTime(0.01, now + 0.22);
+                        osc.start(now);
+                        osc.stop(now + 0.22);
+                    }
+                } catch (e) {}
+            }
+        };
+
+        // ==========================================
+        // 2. ネオンカラーテーマ＆SSRオーラ定義
+        // ==========================================
+        const NEON_THEMES = [
+            { name: 'サイバーピンク', body: 'rgba(236, 72, 153, 0.38)', line: '#f472b6', shadow: '0 0 20px #ec4899', border: 'border-pink-500/80' },
+            { name: 'エレクトリックシアン', body: 'rgba(6, 182, 212, 0.38)', line: '#22d3ee', shadow: '0 0 20px #06b6d4', border: 'border-cyan-400/80' },
+            { name: 'ネオンライム', body: 'rgba(132, 204, 22, 0.38)', line: '#a3e635', shadow: '0 0 20px #84cc16', border: 'border-lime-400/80' },
+            { name: 'ハイパーバイオレット', body: 'rgba(139, 92, 246, 0.38)', line: '#a78bfa', shadow: '0 0 20px #8b5cf6', border: 'border-violet-400/80' },
+            { name: 'サンバーストゴールド', body: 'rgba(245, 158, 11, 0.38)', line: '#fbbf24', shadow: '0 0 20px #f59e0b', border: 'border-amber-400/80' }
+        ];
+
+        const AURA_TIERS = [
+            { name: '翠玉ネオン', mult: 1.5, themeIdx: 2, badgeClass: 'bg-emerald-950 text-emerald-300 border-emerald-400', prob: 0.40 },
+            { name: '蒼天サイバー', mult: 2.0, themeIdx: 1, badgeClass: 'bg-cyan-950 text-cyan-300 border-cyan-400', prob: 0.30 },
+            { name: '黄金サンバースト', mult: 3.0, themeIdx: 4, badgeClass: 'bg-amber-950 text-amber-300 border-amber-400', prob: 0.20 },
+            { name: '🌈 SSR虹神オーラ', mult: 5.0, themeIdx: 0, badgeClass: 'bg-gradient-to-r from-pink-600 via-amber-500 to-cyan-500 text-white border-yellow-200', prob: 0.10 }
+        ];
+
+        // ==========================================
+        // 3. ゲーム状態管理
+        // ==========================================
+        const STORAGE_KEY = 'fraction_master_save_v2';
+
+        const State = {
+            playerName: '', // 初期値は空欄（未入力時は「ゲスト」として表示）
+            mode: 'score',  // 'score' | 'endless'
+            rule: 'improper_to_mixed', // 'improper_to_mixed' | 'mixed_to_improper' | 'mix'
+            timeLimit: 45,
+            timeLeft: 45,
+            timerId: null,
+            roundTimeoutId: null,
+            isPlaying: false,
+            isPaused: false,
+            isResolving: false,
+            openedRecordsFromPause: false,
+
+            coins: 500,
+            combo: 0,
+            solvedCount: 0,
+            totalDamage: 0,
+            maxSingleHit: 0,
+            themeIndex: 0,
+            auraMultiplier: 1.0,
+            auraName: '通常',
+            auraBadgeClass: 'bg-slate-800 text-slate-300 border-slate-700',
+
+            currentProblem: null,
+
+            records: {
+                maxSingle: 0,
+                maxPlayer: 'ゲスト',
+                totalSolved: 0,
+                maxCombo: 0,
+                topHits: []
+            }
+        };
+
+        function getDisplayPlayerName() {
+            const trimmed = (State.playerName || '').trim();
+            return trimmed.length > 0 ? trimmed : 'ゲスト';
+        }
+
+        // ローカルストレージからの読み込み
+        function loadSavedData() {
+            try {
+                const saved = localStorage.getItem(STORAGE_KEY) || localStorage.getItem('fraction_master_save');
+                if (saved) {
+                    const data = JSON.parse(saved);
+                    if (typeof data.playerName === 'string') {
+                        State.playerName = data.playerName === 'ドパガキ' ? '' : data.playerName;
+                    }
+                    if (typeof data.coins === 'number' && !isNaN(data.coins)) {
+                        State.coins = data.coins;
+                    }
+                    if (data.records && typeof data.records === 'object') {
+                        State.records.maxSingle = Number(data.records.maxSingle) || 0;
+                        State.records.maxPlayer = (data.records.maxPlayer && data.records.maxPlayer !== 'ドパガキ') ? data.records.maxPlayer : 'ゲスト';
+                        State.records.totalSolved = Number(data.records.totalSolved) || 0;
+                        State.records.maxCombo = Number(data.records.maxCombo) || 0;
+                        if (Array.isArray(data.records.topHits)) {
+                            State.records.topHits = data.records.topHits;
+                        }
+                    }
+                }
+            } catch (e) {}
+        }
+
+        function saveData() {
+            try {
+                const data = {
+                    playerName: State.playerName,
+                    coins: State.coins,
+                    records: State.records
+                };
+                localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+            } catch (e) {}
+        }
+
+        function formatDamage(num) {
+            const n = Math.floor(num);
+            if (n >= 1e16) return `${(n / 1e16).toFixed(2)}京ダメージ`;
+            if (n >= 1e12) return `${(n / 1e12).toFixed(2)}兆ダメージ`;
+            return `${n.toLocaleString('ja-JP')}ダメージ`;
+        }
+
+        function resetAuraToDefault() {
+            State.auraMultiplier = 1.0;
+            State.auraName = '通常';
+            State.auraBadgeClass = 'bg-slate-800 text-slate-300 border-slate-700';
+        }
+
+        function applyNeonTheme() {
+            const theme = NEON_THEMES[State.themeIndex % NEON_THEMES.length];
+            const lavaContainer = document.getElementById('lava-container');
+            const lavaLine = document.getElementById('lava-line');
+            if (lavaContainer && lavaLine) {
+                lavaContainer.style.background = `linear-gradient(180deg, ${theme.body} 0%, rgba(15, 23, 42, 0.9) 100%)`;
+                lavaLine.style.background = theme.line;
+                lavaLine.style.boxShadow = `${theme.shadow}, 0 0 36px ${theme.line}`;
+            }
+        }
+
+        function applyCardAuraVisuals() {
+            const qCard = document.getElementById('question-card');
+            const qTag = document.getElementById('question-aura-tag');
+            const currentTheme = NEON_THEMES[State.themeIndex % NEON_THEMES.length];
+
+            let auraClass = '';
+            if (State.auraMultiplier >= 5.0) {
+                auraClass = 'card-aura-ssr';
+            } else if (State.auraMultiplier >= 3.0) {
+                auraClass = 'card-aura-gold';
+            } else if (State.auraMultiplier > 1.0) {
+                auraClass = `card-aura-boost ${currentTheme.border}`;
+            }
+
+            if (qCard) {
+                qCard.className = `bg-slate-900/95 border-2 border-indigo-500/50 rounded-3xl p-5 shadow-2xl text-center relative overflow-hidden transition-all duration-300 ${auraClass}`;
+            }
+            if (qTag) {
+                if (State.auraMultiplier > 1.0) {
+                    qTag.classList.remove('hidden');
+                    qTag.textContent = `${State.auraName} ×${State.auraMultiplier.toFixed(1)}倍!`;
+                } else {
+                    qTag.classList.add('hidden');
+                }
+            }
+
+            document.querySelectorAll('.choice-btn').forEach(btn => {
+                const borderStyle = State.auraMultiplier > 1.0
+                    ? currentTheme.border
+                    : 'border-slate-700 hover:border-indigo-400';
+                btn.className = `choice-btn h-20 sm:h-24 rounded-2xl bg-slate-900/95 border-2 ${borderStyle} ${auraClass} text-white font-black text-xl sm:text-2xl flex items-center justify-center shadow-xl anim-pop`;
+            });
+        }
+
+        function updateHeaderStats() {
+            document.getElementById('stat-player-name').textContent = getDisplayPlayerName();
+            document.getElementById('stat-coins').textContent = State.coins.toLocaleString('ja-JP');
+            document.getElementById('stat-combo').textContent = `${State.combo} 連勝`;
+            document.getElementById('stat-total-dmg').textContent = formatDamage(State.totalDamage);
+            document.getElementById('stat-score').textContent = `(${State.solvedCount}問)`;
+            document.getElementById('stat-max-hit').textContent = formatDamage(State.maxSingleHit);
+            const allTimeEl = document.getElementById('stat-alltime-max');
+            if (allTimeEl) allTimeEl.textContent = formatDamage(State.records.maxSingle);
+
+            const auraBadge = document.getElementById('aura-badge');
+            if (auraBadge) {
+                const limitNote = State.auraMultiplier > 1.0 ? '・この1問限定!' : '';
+                auraBadge.textContent = `オーラ倍率: ×${State.auraMultiplier.toFixed(1)} (${State.auraName}${limitNote})`;
+                auraBadge.className = `text-[11px] font-black px-2.5 py-0.5 rounded-full border ${State.auraBadgeClass}`;
+            }
+
+            const ruleNames = {
+                'improper_to_mixed': '仮分数 ➔ 帯分数',
+                'mixed_to_improper': '帯分数 ➔ 仮分数',
+                'mix': 'ランダム ミックス'
+            };
+            document.getElementById('txt-rule-name').textContent = ruleNames[State.rule];
+        }
+
+        // ==========================================
+        // 4. 問題生成エンジン
+        // ==========================================
+        function gcd(a, b) {
+            return b === 0 ? a : gcd(b, a % b);
+        }
+
+        function generateProblem() {
+            let activeRule = State.rule;
+            if (activeRule === 'mix') {
+                activeRule = Math.random() < 0.5 ? 'improper_to_mixed' : 'mixed_to_improper';
+            }
+
+            // 分母（2〜9）
+            const denominators = [2, 3, 4, 5, 6, 7, 8, 9];
+            const den = denominators[Math.floor(Math.random() * denominators.length)];
+            // 整数部分（1〜5）
+            const whole = Math.floor(Math.random() * 5) + 1;
+            // 分子あまり（1 〜 den-1）
+            const rem = Math.floor(Math.random() * (den - 1)) + 1;
+
+            const improperNum = whole * den + rem;
+
+            let questionObj = {};
+            let correctAnswerStr = '';
+
+            if (activeRule === 'improper_to_mixed') {
+                // 仮分数 ➔ 帯分数
+                questionObj = {
+                    type: 'improper_to_mixed',
+                    prompt: '次の仮分数を帯分数に変換せよ！',
+                    html: `<div class="fraction-box"><div class="fraction-num">${improperNum}</div><div class="fraction-den">${den}</div></div>`
+                };
+                correctAnswerStr = `${whole} <span class="fraction-box"><span class="fraction-num">${rem}</span><span class="fraction-den">${den}</span></span>`;
+            } else {
+                // 帯分数 ➔ 仮分数
+                questionObj = {
+                    type: 'mixed_to_improper',
+                    prompt: '次の帯分数を仮分数に変換せよ！',
+                    html: `<span class="text-3xl sm:text-5xl mr-1">${whole}</span><div class="fraction-box"><div class="fraction-num">${rem}</div><div class="fraction-den">${den}</div></div>`
+                };
+                correctAnswerStr = `<div class="fraction-box"><div class="fraction-num">${improperNum}</div><div class="fraction-den">${den}</div></div>`;
+            }
+
+            // 誤答選択肢を3つ生成
+            const wrongAnswers = new Set();
+            while (wrongAnswers.size < 3) {
+                let wWhole = Math.max(1, whole + (Math.floor(Math.random() * 5) - 2));
+                let wRem = Math.max(1, Math.min(den - 1, rem + (Math.floor(Math.random() * 3) - 1)));
+                if (wWhole === whole && wRem === rem) wRem = (rem % (den - 1)) + 1;
+                
+                let wImproper = wWhole * den + wRem;
+                if (Math.random() < 0.5) wImproper += (Math.random() < 0.5 ? 1 : -1);
+
+                let wStr = '';
+                if (activeRule === 'improper_to_mixed') {
+                    wStr = `${wWhole} <span class="fraction-box"><span class="fraction-num">${wRem}</span><span class="fraction-den">${den}</span></span>`;
+                } else {
+                    wStr = `<div class="fraction-box"><div class="fraction-num">${Math.max(den + 1, wImproper)}</div><div class="fraction-den">${den}</div></div>`;
+                }
+                if (wStr !== correctAnswerStr) wrongAnswers.add(wStr);
+            }
+
+            const options = [correctAnswerStr, ...Array.from(wrongAnswers)];
+            // シャッフル
+            options.sort(() => Math.random() - 0.5);
+            const correctIndex = options.indexOf(correctAnswerStr);
+
+            const formulaStr = activeRule === 'improper_to_mixed'
+                ? `${improperNum}/${den} = ${whole}と${rem}/${den}`
+                : `${whole}と${rem}/${den} = ${improperNum}/${den}`;
+
+            return {
+                prompt: questionObj.prompt,
+                html: questionObj.html,
+                options: options,
+                correctIndex: correctIndex,
+                formulaStr: formulaStr
+            };
+        }
+
+        function renderProblem() {
+            State.currentProblem = generateProblem();
+            document.getElementById('question-prompt-label').textContent = State.currentProblem.prompt;
+            document.getElementById('question-display').innerHTML = State.currentProblem.html;
+
+            const container = document.getElementById('choices-container');
+            container.innerHTML = '';
+
+            State.currentProblem.options.forEach((optHtml, idx) => {
+                const btn = document.createElement('button');
+                btn.type = 'button';
+                btn.className = `choice-btn h-20 sm:h-24 rounded-2xl bg-slate-900/95 border-2 border-slate-700 hover:border-indigo-400 text-white font-black text-xl sm:text-2xl flex items-center justify-center shadow-xl anim-pop`;
+                btn.innerHTML = optHtml;
+                btn.addEventListener('click', () => onChoiceClick(idx));
+                container.appendChild(btn);
+            });
+            applyCardAuraVisuals();
+            updateHeaderStats();
+        }
+
+        // ==========================================
+        // 5. 選択クリック＆判定ロジック
+        // ==========================================
+        function spawnFloatingText(mainText, subText = '', colorClass = 'text-amber-300') {
+            const layer = document.getElementById('fx-layer');
+            const div = document.createElement('div');
+            div.className = 'floating-dmg text-center';
+            div.innerHTML = `
+                <div class="text-2xl sm:text-4xl font-black ${colorClass} drop-shadow-[0_4px_16px_rgba(0,0,0,0.9)] whitespace-nowrap">${mainText}</div>
+                ${subText ? `<div class="text-xs sm:text-sm font-black text-white bg-slate-950/90 px-3 py-1 rounded-full border border-white/20 mt-1 inline-block">${subText}</div>` : ''}
+            `;
+            layer.appendChild(div);
+            setTimeout(() => div.remove(), 1200);
+        }
+
+        function spawnConfetti(count = 45) {
+            const layer = document.getElementById('fx-layer');
+            const colors = ['#f472b6', '#22d3ee', '#facc15', '#a3e635', '#c084fc', '#fb7185', '#ffffff'];
+            for (let i = 0; i < count; i++) {
+                const piece = document.createElement('div');
+                piece.className = 'confetti-piece';
+                const size = 7 + Math.floor(Math.random() * 8);
+                piece.style.width = `${size}px`;
+                piece.style.height = `${Math.floor(size * 1.4)}px`;
+                piece.style.left = `${Math.random() * 100}vw`;
+                piece.style.backgroundColor = colors[Math.floor(Math.random() * colors.length)];
+                piece.style.setProperty('--drift', `${(Math.random() - 0.5) * 220}px`);
+                piece.style.setProperty('--dur', `${1.4 + Math.random() * 1.3}s`);
+                layer.appendChild(piece);
+                setTimeout(() => piece.remove(), 2800);
+            }
+        }
+
+        function triggerScreenFlash() {
+            const layer = document.getElementById('fx-layer');
+            const flash = document.createElement('div');
+            flash.className = 'gacha-flash';
+            layer.appendChild(flash);
+            setTimeout(() => flash.remove(), 800);
+        }
+
+        function nextRoundProblem() {
+            // 1問限りでガチャのオーラ倍率をリセット！
+            resetAuraToDefault();
+            State.themeIndex = (State.themeIndex + 1) % NEON_THEMES.length;
+            applyNeonTheme();
+            State.isResolving = false;
+            renderProblem();
+        }
+
+        function onChoiceClick(idx) {
+            if (!State.isPlaying || State.isPaused || State.isResolving) return;
+
+            const isCorrect = idx === State.currentProblem.correctIndex;
+            State.isResolving = true;
+
+            if (isCorrect) {
+                Sound.play('correct');
+                State.combo++;
+                State.solvedCount++;
+
+                // ダメージ計算（インフレ＋1問限定オーラ倍率）
+                const base = 1500 + Math.pow(State.combo, 1.8) * 120;
+                const comboMult = Math.pow(1.38, Math.min(State.combo, 35));
+                const diffMult = 1.5;
+                const rawDamage = Math.floor(base * comboMult * diffMult * State.auraMultiplier);
+
+                State.totalDamage += rawDamage;
+                if (rawDamage > State.maxSingleHit) State.maxSingleHit = rawDamage;
+
+                const earnedCoins = 25 + Math.min(80, State.combo * 5);
+                State.coins += earnedCoins;
+
+                const pName = getDisplayPlayerName();
+
+                // 記録更新（プレイヤー名を確実に紐付け！）
+                State.records.totalSolved++;
+                if (State.combo > State.records.maxCombo) State.records.maxCombo = State.combo;
+                if (rawDamage > State.records.maxSingle) {
+                    State.records.maxSingle = rawDamage;
+                    State.records.maxPlayer = pName;
+                }
+                State.records.topHits.push({
+                    player: pName,
+                    damage: rawDamage,
+                    combo: State.combo,
+                    formula: State.currentProblem.formulaStr || ''
+                });
+                State.records.topHits.sort((a, b) => b.damage - a.damage);
+                State.records.topHits = State.records.topHits.slice(0, 5);
+                saveData();
+                updateHeaderStats();
+
+                let tierLabel = '🎯 変換成功!';
+                let colorClass = 'text-emerald-300';
+                if (rawDamage >= 1e12) { tierLabel = '🌌 LIMIT BREAK!!'; colorClass = 'text-fuchsia-300'; spawnConfetti(40); }
+                else if (rawDamage >= 1e8) { tierLabel = '⚡ GODLIKE HIT!!'; colorClass = 'text-amber-300'; spawnConfetti(25); }
+                else if (rawDamage >= 1e6) { tierLabel = '🔥 MEGA HIT!'; colorClass = 'text-rose-300'; }
+
+                spawnFloatingText(`${tierLabel} ${formatDamage(rawDamage)}`, `${State.combo} 連勝中！ ＋🪙${earnedCoins}`, colorClass);
+
+                // 20連勝ごとの休憩チェック
+                if (State.combo > 0 && State.combo % 20 === 0) {
+                    if (State.roundTimeoutId) clearTimeout(State.roundTimeoutId);
+                    State.roundTimeoutId = setTimeout(() => {
+                        State.roundTimeoutId = null;
+                        if (State.isPlaying) openBreakModal();
+                    }, 600);
+                    return;
+                }
+
+                if (State.roundTimeoutId) clearTimeout(State.roundTimeoutId);
+                State.roundTimeoutId = setTimeout(() => {
+                    State.roundTimeoutId = null;
+                    if (State.isPlaying && !State.isPaused) nextRoundProblem();
+                }, 700);
+
+            } else {
+                Sound.play('wrong');
+                State.combo = 0;
+                updateHeaderStats();
+                spawnFloatingText('💦 ミス！', '気を取り直して次へ！', 'text-rose-400');
+                if (State.roundTimeoutId) clearTimeout(State.roundTimeoutId);
+                State.roundTimeoutId = setTimeout(() => {
+                    State.roundTimeoutId = null;
+                    if (State.isPlaying && !State.isPaused) nextRoundProblem();
+                }, 750);
+            }
+        }
+
+        // ==========================================
+        // 6. サポートアイテム機能
+        // ==========================================
+        function useSkip() {
+            if (!State.isPlaying || State.isPaused || State.isResolving) return;
+            const cost = 50;
+            if (State.coins < cost) {
+                Sound.play('wrong');
+                return;
+            }
+            State.coins -= cost;
+            Sound.play('correct');
+            saveData();
+            nextRoundProblem();
+        }
+
+        function useFreeze() {
+            if (!State.isPlaying || State.isPaused || State.isResolving) return;
+            if (State.mode !== 'score') {
+                spawnFloatingText('☕ 無限モード中', '時間制限はありません！', 'text-sky-300');
+                return;
+            }
+            const cost = 100;
+            if (State.coins < cost) {
+                Sound.play('wrong');
+                return;
+            }
+            State.coins -= cost;
+            State.timeLeft = Math.min(State.timeLimit + 15, State.timeLeft + 15);
+            Sound.play('correct');
+            spawnFloatingText('❄️ TIME +15秒!', 'ネオンゲージを押し戻した！', 'text-cyan-300');
+            updateTimerUI();
+            updateHeaderStats();
+            saveData();
+        }
+
+        function useColorGacha() {
+            if (!State.isPlaying || State.isPaused || State.isResolving) return;
+            const cost = 80;
+            if (State.coins < cost) {
+                Sound.play('wrong');
+                return;
+            }
+            State.coins -= cost;
+
+            const r = Math.random();
+            let acc = 0;
+            let picked = AURA_TIERS[0];
+            for (const tier of AURA_TIERS) {
+                acc += tier.prob;
+                if (r <= acc) { picked = tier; break; }
+            }
+
+            State.themeIndex = (State.themeIndex + 1 + Math.floor(Math.random() * (NEON_THEMES.length - 1))) % NEON_THEMES.length;
+            State.auraMultiplier = picked.mult;
+            State.auraName = picked.name;
+            State.auraBadgeClass = picked.badgeClass;
+
+            applyNeonTheme();
+            applyCardAuraVisuals();
+            updateHeaderStats();
+            saveData();
+
+            if (picked.mult >= 3.0) {
+                Sound.play('yay');
+                triggerScreenFlash();
+                spawnConfetti(picked.mult >= 5.0 ? 75 : 40);
+                spawnFloatingText(
+                    `🎉 【 この1問 ×${picked.mult.toFixed(1)} 倍 覚 醒 ！！ 】`,
+                    `${picked.name} ＆ 虹色カード発光！イェーイ！！`,
+                    'text-yellow-300'
+                );
+            } else {
+                Sound.play('gacha');
+                spawnConfetti(18);
+                spawnFloatingText(
+                    `💎 ${picked.name} (この1問 ×${picked.mult.toFixed(1)}倍)`,
+                    'カードとネオンが発光強化！',
+                    'text-amber-300'
+                );
+            }
+        }
+
+        // ==========================================
+        // 7. タイマー＆ネオンゲージ制御
+        // ==========================================
+        function stopTimerLoop() {
+            if (State.timerId) {
+                clearInterval(State.timerId);
+                State.timerId = null;
+            }
+            if (State.roundTimeoutId) {
+                clearTimeout(State.roundTimeoutId);
+                State.roundTimeoutId = null;
+            }
+        }
+
+        function startTimerLoop() {
+            stopTimerLoop();
+            const lava = document.getElementById('lava-container');
+            if (State.mode === 'endless') {
+                lava.classList.add('hidden');
+                document.getElementById('stat-time').textContent = '∞ 無制限';
+                return;
+            }
+            lava.classList.remove('hidden');
+            applyNeonTheme();
+
+            State.timerId = setInterval(() => {
+                if (!State.isPlaying || State.isPaused || State.isResolving) return;
+                State.timeLeft = Math.max(0, State.timeLeft - 0.1);
+                updateTimerUI();
+
+                if (State.timeLeft <= 0) {
+                    onTimeUp();
+                }
+            }, 100);
+        }
+
+        function updateTimerUI() {
+            const timeEl = document.getElementById('stat-time');
+            const lava = document.getElementById('lava-container');
+            if (State.mode === 'endless') {
+                timeEl.textContent = '∞ 無制限';
+                lava.style.height = '0%';
+                return;
+            }
+            timeEl.textContent = `${State.timeLeft.toFixed(1)}秒`;
+            const ratio = Math.max(0, Math.min(1, 1 - State.timeLeft / State.timeLimit));
+            lava.style.height = `${(ratio * 92).toFixed(1)}%`;
+        }
+
+        function onTimeUp() {
+            State.isPaused = true;
+            stopTimerLoop();
+            Sound.play('wrong');
+
+            document.getElementById('timeup-combo').textContent = `${State.combo} 連勝`;
+            document.getElementById('timeup-total-dmg').textContent = formatDamage(State.totalDamage);
+
+            const m = document.getElementById('modal-timeup');
+            m.classList.remove('hidden');
+            m.classList.add('flex');
+        }
+
+        // ==========================================
+        // 8. モーダル管理＆イベント
+        // ==========================================
+        function renderRecordsModal() {
+            document.getElementById('rec-max-single').textContent = formatDamage(State.records.maxSingle);
+            const maxPlayerEl = document.getElementById('rec-max-player');
+            if (maxPlayerEl) {
+                maxPlayerEl.textContent = `👤 ${State.records.maxPlayer || 'ゲスト'}`;
+            }
+            document.getElementById('rec-total-solved').textContent = `${State.records.totalSolved}問クリア`;
+            document.getElementById('rec-max-combo').textContent = `最大 ${State.records.maxCombo} 連勝`;
+
+            const list = document.getElementById('rec-ranking-list');
+            list.innerHTML = '';
+            if (State.records.topHits.length === 0) {
+                list.innerHTML = `<div class="text-xs text-slate-500 py-4 text-center">まだ記録がありません。変換して大ダメージを出そう！</div>`;
+                return;
+            }
+            State.records.topHits.forEach((item, idx) => {
+                const playerLabel = (item.player && item.player !== 'ドパガキ') ? item.player : 'ゲスト';
+                const formulaNote = item.formula ? ` (${item.formula})` : '';
+                const row = document.createElement('div');
+                row.className = 'flex items-center justify-between bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs';
+                row.innerHTML = `
+                    <div class="flex items-center gap-2 truncate">
+                        <span class="font-black text-amber-400">#${idx + 1}</span>
+                        <span class="px-1.5 py-0.5 rounded bg-indigo-950 border border-indigo-500/40 text-[10px] font-black text-indigo-200 whitespace-nowrap">👤 ${playerLabel}</span>
+                        <span class="font-bold text-slate-200 truncate">${item.combo}連勝${formulaNote}</span>
+                    </div>
+                    <div class="font-black text-pink-400 whitespace-nowrap ml-2">${formatDamage(item.damage)}</div>
+                `;
+                list.appendChild(row);
+            });
+        }
+
+        function openBreakModal() {
+            State.isPaused = true;
+            Sound.play('yay');
+            spawnConfetti(55);
+            document.getElementById('break-title').textContent = `🎉 ${State.combo}連勝達成！！`;
+            document.getElementById('break-total-dmg').textContent = formatDamage(State.totalDamage);
+            const m = document.getElementById('modal-break');
+            m.classList.remove('hidden');
+            m.classList.add('flex');
+        }
+
+        window.addEventListener('DOMContentLoaded', () => {
+            loadSavedData();
+            const nameInputEl = document.getElementById('input-player-name');
+            if (nameInputEl) {
+                nameInputEl.value = State.playerName || '';
+                nameInputEl.addEventListener('input', () => {
+                    State.playerName = nameInputEl.value.trim();
+                    updateHeaderStats();
+                    saveData();
+                });
+            }
+            updateHeaderStats();
+
+            // ルールボタン選択
+            document.querySelectorAll('.title-rule-btn').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    Sound.play('tap');
+                    State.rule = btn.dataset.rule;
+                    document.querySelectorAll('.title-rule-btn').forEach(b => {
+                        b.className = b === btn
+                            ? 'title-rule-btn py-2 px-1 rounded-xl font-black text-xs border-2 border-indigo-400 bg-indigo-950/80 text-indigo-200 transition'
+                            : 'title-rule-btn py-2 px-1 rounded-xl font-black text-xs border border-slate-700 bg-slate-800/80 text-slate-400 transition';
+                    });
+                });
+            });
+
+            // 制限時間選択
+            document.querySelectorAll('.title-time-btn').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    Sound.play('tap');
+                    State.timeLimit = parseInt(btn.dataset.time, 10);
+                    document.querySelectorAll('.title-time-btn').forEach(b => {
+                        b.className = b === btn
+                            ? 'title-time-btn py-2 px-2 rounded-xl font-black text-xs border-2 border-cyan-400 bg-cyan-950/80 text-cyan-200 transition'
+                            : 'title-time-btn py-2 px-2 rounded-xl font-black text-xs border border-slate-700 bg-slate-800/80 text-slate-400 transition';
+                    });
+                });
+            });
+
+            // ゲーム開始（スコアモード / 無限モード）
+            function startGame(mode) {
+                const nameInput = document.getElementById('input-player-name');
+                if (nameInput) {
+                    State.playerName = nameInput.value.trim();
+                }
+
+                Sound.play('correct');
+                State.mode = mode;
+                State.isPlaying = true;
+                State.isPaused = false;
+                State.isResolving = false;
+                State.combo = 0;
+                State.solvedCount = 0;
+                State.totalDamage = 0;
+                State.maxSingleHit = 0;
+                State.timeLeft = State.timeLimit;
+                resetAuraToDefault();
+
+                const modeBadge = document.getElementById('mode-badge');
+                if (mode === 'score') {
+                    modeBadge.textContent = `スコアモード(${State.timeLimit}秒)`;
+                    modeBadge.className = 'text-[10px] font-black px-2 py-0.5 rounded-full bg-emerald-950/90 text-emerald-300 border border-emerald-500/40';
+                } else {
+                    modeBadge.textContent = '無限モード(時間無制限)';
+                    modeBadge.className = 'text-[10px] font-black px-2 py-0.5 rounded-full bg-indigo-950/90 text-indigo-300 border border-indigo-500/40';
+                }
+
+                document.getElementById('modal-title').classList.add('hidden');
+                renderProblem();
+                startTimerLoop();
+                Sound.startBGM();
+                saveData();
+            }
+
+            document.getElementById('btn-start-score').addEventListener('click', () => startGame('score'));
+            document.getElementById('btn-start-endless').addEventListener('click', () => startGame('endless'));
+
+            // タイトルへ戻る
+            function returnToTitle() {
+                Sound.play('tap');
+                stopTimerLoop();
+                Sound.stopBGM();
+                State.isPlaying = false;
+                State.isPaused = false;
+                State.isResolving = false;
+                const lava = document.getElementById('lava-container');
+                lava.classList.add('hidden');
+                lava.style.height = '0%';
+                document.getElementById('modal-pause').classList.add('hidden');
+                document.getElementById('modal-pause').classList.remove('flex');
+                document.getElementById('modal-break').classList.add('hidden');
+                document.getElementById('modal-break').classList.remove('flex');
+                document.getElementById('modal-timeup').classList.add('hidden');
+                document.getElementById('modal-timeup').classList.remove('flex');
+                document.getElementById('modal-title').classList.remove('hidden');
+                saveData();
+            }
+
+            document.getElementById('btn-quit').addEventListener('click', returnToTitle);
+            document.getElementById('btn-pause-quit').addEventListener('click', returnToTitle);
+            document.getElementById('btn-break-quit').addEventListener('click', returnToTitle);
+            document.getElementById('btn-timeup-ok').addEventListener('click', returnToTitle);
+
+            // 20連勝休憩：続ける
+            document.getElementById('btn-break-continue').addEventListener('click', () => {
+                Sound.play('correct');
+                const m = document.getElementById('modal-break');
+                m.classList.add('hidden');
+                m.classList.remove('flex');
+                State.isPaused = false;
+                nextRoundProblem();
+            });
+
+            // 一時停止
+            document.getElementById('btn-pause').addEventListener('click', () => {
+                if (!State.isPlaying) return;
+                Sound.play('tap');
+                State.isPaused = true;
+                const m = document.getElementById('modal-pause');
+                m.classList.remove('hidden');
+                m.classList.add('flex');
+            });
+
+            document.getElementById('btn-resume').addEventListener('click', () => {
+                Sound.play('tap');
+                State.isPaused = false;
+                const m = document.getElementById('modal-pause');
+                m.classList.add('hidden');
+                m.classList.remove('flex');
+            });
+
+            // 記録モーダル
+            function openRecords(fromPause = false) {
+                Sound.play('tap');
+                State.openedRecordsFromPause = fromPause;
+                if (State.isPlaying) State.isPaused = true;
+                renderRecordsModal();
+                const m = document.getElementById('modal-records');
+                m.classList.remove('hidden');
+                m.classList.add('flex');
+            }
+            function closeRecords() {
+                Sound.play('tap');
+                const m = document.getElementById('modal-records');
+                m.classList.add('hidden');
+                m.classList.remove('flex');
+                if (State.isPlaying && !State.openedRecordsFromPause) {
+                    const pauseModal = document.getElementById('modal-pause');
+                    if (pauseModal.classList.contains('hidden')) {
+                        State.isPaused = false;
+                    }
+                }
+            }
+
+            document.getElementById('btn-records').addEventListener('click', () => openRecords(false));
+            document.getElementById('btn-title-records').addEventListener('click', () => openRecords(false));
+            document.getElementById('btn-pause-records').addEventListener('click', () => openRecords(true));
+            document.getElementById('btn-close-records').addEventListener('click', closeRecords);
+            document.getElementById('btn-close-records-bottom').addEventListener('click', closeRecords);
+
+            // 遊び方モーダル
+            function openHelp() {
+                Sound.play('tap');
+                if (State.isPlaying) State.isPaused = true;
+                const m = document.getElementById('modal-help');
+                m.classList.remove('hidden');
+                m.classList.add('flex');
+            }
+            function closeHelp() {
+                Sound.play('tap');
+                const m = document.getElementById('modal-help');
+                m.classList.add('hidden');
+                m.classList.remove('flex');
+                if (State.isPlaying && document.getElementById('modal-pause').classList.contains('hidden')) {
+                    State.isPaused = false;
+                }
+            }
+
+            document.getElementById('btn-help').addEventListener('click', openHelp);
+            document.getElementById('btn-title-help').addEventListener('click', openHelp);
+            document.getElementById('btn-close-help').addEventListener('click', closeHelp);
+            document.getElementById('btn-close-help-bottom').addEventListener('click', closeHelp);
+
+            // サポートボタン
+            document.getElementById('btn-skip').addEventListener('click', useSkip);
+            document.getElementById('btn-freeze').addEventListener('click', useFreeze);
+            document.getElementById('btn-gacha').addEventListener('click', useColorGacha);
+
+            // BGM & 効果音
+            document.getElementById('btn-bgm').addEventListener('click', () => {
+                Sound.bgmEnabled = !Sound.bgmEnabled;
+                const icon = document.getElementById('icon-bgm');
+                const btn = document.getElementById('btn-bgm');
+                if (Sound.bgmEnabled) {
+                    icon.className = 'fa-solid fa-music text-sm';
+                    btn.className = 'w-9 h-9 rounded-xl bg-slate-800/90 hover:bg-slate-700 border border-slate-700 text-emerald-400 flex items-center justify-center transition';
+                    Sound.play('tap');
+                    if (State.isPlaying) Sound.startBGM();
+                } else {
+                    icon.className = 'fa-solid fa-music text-sm text-slate-500 opacity-50';
+                    btn.className = 'w-9 h-9 rounded-xl bg-slate-800/90 hover:bg-slate-700 border border-slate-700 text-slate-500 flex items-center justify-center transition';
+                    Sound.stopBGM();
+                }
+            });
+
+            document.getElementById('btn-sound').addEventListener('click', () => {
+                Sound.enabled = !Sound.enabled;
+                const icon = document.getElementById('icon-sound');
+                icon.className = Sound.enabled ? 'fa-solid fa-volume-high text-sm' : 'fa-solid fa-volume-xmark text-sm text-slate-500';
+                if (Sound.enabled) Sound.play('tap');
+            });
+        });
+    </script>
+</body>
+</html>
