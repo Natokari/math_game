@@ -1,0 +1,1648 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>FINAL FRACTION - 約分スラッシュ・バトル</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@700;900&family=Noto+Sans+JP:wght@700;900&display=swap" rel="stylesheet">
+    <style>
+        * {
+            box-sizing: border-box;
+            user-select: none;
+            -webkit-user-select: none;
+            -webkit-touch-callout: none;
+        }
+        body {
+            font-family: 'Inter', 'Noto Sans JP', sans-serif;
+            background-color: #040711;
+            color: #f8fafc;
+            overflow-x: hidden;
+        }
+        /* FF伝統のクリスタルブルー・グラデーションウィンドウ */
+        .ff-window {
+            background: linear-gradient(180deg, rgba(16, 42, 115, 0.94) 0%, rgba(8, 18, 60, 0.96) 55%, rgba(4, 9, 32, 0.98) 100%);
+            border: 2.5px solid #cbd5e1;
+            box-shadow: 
+                inset 0 0 0 2px rgba(15, 23, 42, 0.9),
+                0 10px 28px rgba(0, 0, 0, 0.75);
+            border-radius: 14px;
+        }
+        .ff-cmd-btn {
+            background: linear-gradient(180deg, rgba(30, 64, 175, 0.85) 0%, rgba(15, 32, 92, 0.95) 100%);
+            border: 2px solid #94a3b8;
+            box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.25);
+            transition: transform 0.1s ease, border-color 0.12s ease, background 0.12s ease;
+        }
+        .ff-cmd-btn:hover {
+            border-color: #facc15;
+            background: linear-gradient(180deg, rgba(37, 99, 235, 0.92) 0%, rgba(23, 37, 84, 0.98) 100%);
+        }
+        .ff-cmd-btn:active {
+            transform: scale(0.94);
+        }
+        /* 下からせり上がるリミット時間ゲージ */
+        #lava-container {
+            position: fixed;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            height: 0%;
+            z-index: 5;
+            pointer-events: none;
+            transition: height 0.1s linear, background 0.4s ease;
+            background: linear-gradient(180deg, rgba(56, 189, 248, 0.32) 0%, rgba(15, 23, 42, 0.88) 100%);
+            background-image: 
+                linear-gradient(rgba(255, 255, 255, 0.05) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(255, 255, 255, 0.05) 1px, transparent 1px);
+            background-size: 28px 28px;
+        }
+        #lava-line {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 4px;
+            background: #38bdf8;
+            box-shadow: 0 0 20px #0284c7, 0 0 40px #38bdf8;
+        }
+        /* 斬撃エフェクトアニメーション */
+        @keyframes slashStrike {
+            0% { transform: translate(-50%, -50%) rotate(-32deg) scaleX(0); opacity: 1; }
+            45% { transform: translate(-50%, -50%) rotate(-32deg) scaleX(1.3); opacity: 1; }
+            100% { transform: translate(-50%, -50%) rotate(-32deg) scaleX(1.5); opacity: 0; }
+        }
+        .slash-line {
+            position: absolute;
+            left: 50%;
+            top: 50%;
+            width: 140%;
+            height: 10px;
+            background: linear-gradient(90deg, transparent, #ffffff, #38bdf8, #facc15, transparent);
+            box-shadow: 0 0 28px #38bdf8, 0 0 48px #ffffff;
+            border-radius: 999px;
+            pointer-events: none;
+            z-index: 40;
+            animation: slashStrike 0.34s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+        }
+        @keyframes monsterShake {
+            0%, 100% { transform: translateX(0); }
+            20% { transform: translateX(-14px) scale(0.95); filter: brightness(2.2); }
+            40% { transform: translateX(12px) scale(1.03); }
+            60% { transform: translateX(-8px); }
+            80% { transform: translateX(6px); }
+        }
+        .anim-damage {
+            animation: monsterShake 0.35s ease-out;
+        }
+        @keyframes floatUp {
+            0% { transform: translate(-50%, 0) scale(0.7); opacity: 0; }
+            20% { transform: translate(-50%, -18px) scale(1.12); opacity: 1; }
+            80% { transform: translate(-50%, -55px) scale(1); opacity: 1; }
+            100% { transform: translate(-50%, -80px) scale(0.9); opacity: 0; }
+        }
+        .floating-dmg {
+            position: fixed;
+            left: 50%;
+            top: 38%;
+            z-index: 60;
+            pointer-events: none;
+            animation: floatUp 1.25s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+        }
+        @keyframes confettiFall {
+            0% { transform: translate3d(0, -10vh, 0) rotate(0deg); opacity: 1; }
+            85% { opacity: 1; }
+            100% { transform: translate3d(var(--drift, 40px), 105vh, 0) rotate(720deg); opacity: 0; }
+        }
+        .confetti-piece {
+            position: fixed;
+            top: -20px;
+            z-index: 70;
+            pointer-events: none;
+            border-radius: 3px;
+            animation: confettiFall var(--dur, 2.2s) cubic-bezier(0.25, 0.46, 0.45, 0.94) forwards;
+        }
+        @keyframes rainbowGlow {
+            0% { border-color: #f472b6; box-shadow: 0 0 24px rgba(244, 114, 182, 0.9), inset 0 0 16px rgba(244, 114, 182, 0.38); }
+            25% { border-color: #facc15; box-shadow: 0 0 28px rgba(250, 204, 21, 0.95), inset 0 0 18px rgba(250, 204, 21, 0.42); }
+            50% { border-color: #4ade80; box-shadow: 0 0 24px rgba(74, 222, 128, 0.9), inset 0 0 16px rgba(74, 222, 128, 0.38); }
+            75% { border-color: #22d3ee; box-shadow: 0 0 28px rgba(34, 211, 238, 0.95), inset 0 0 18px rgba(34, 211, 238, 0.42); }
+            100% { border-color: #f472b6; box-shadow: 0 0 24px rgba(244, 114, 182, 0.9), inset 0 0 16px rgba(244, 114, 182, 0.38); }
+        }
+        .card-aura-ssr {
+            animation: rainbowGlow 1.5s linear infinite !important;
+        }
+        /* 分数ボックス */
+        .fraction-box {
+            display: inline-flex;
+            flex-direction: column;
+            align-items: center;
+            vertical-align: middle;
+            padding: 0 10px;
+            line-height: 1.05;
+        }
+        .fraction-num {
+            border-bottom: 5px solid currentColor;
+            padding-bottom: 6px;
+            width: 100%;
+            text-align: center;
+        }
+        .fraction-den {
+            padding-top: 6px;
+            width: 100%;
+            text-align: center;
+        }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col justify-between relative selection:bg-cyan-500 selection:text-slate-950">
+
+    <!-- 制限時間ゲージ -->
+    <div id="lava-container" class="hidden">
+        <div id="lava-line"></div>
+    </div>
+
+    <!-- フローティングダメージ演出レイヤー -->
+    <div id="fx-layer" class="fixed inset-0 pointer-events-none z-50 overflow-hidden"></div>
+
+    <!-- ヘッダー -->
+    <header class="relative z-20 w-full max-w-4xl mx-auto px-3 pt-2.5 pb-1 flex items-center justify-between gap-2">
+        <div class="flex items-center gap-2 min-w-0">
+            <div class="w-9 h-9 sm:w-10 sm:h-10 shrink-0 rounded-xl bg-gradient-to-br from-blue-500 via-indigo-600 to-cyan-400 border-2 border-slate-200 flex items-center justify-center shadow-lg font-black text-base sm:text-lg text-white">
+                ⚔️
+            </div>
+            <div class="min-w-0">
+                <div class="flex items-center gap-1.5 flex-wrap">
+                    <h1 class="font-black text-sm sm:text-lg tracking-wider text-white whitespace-nowrap">FINAL FRACTION</h1>
+                    <span id="mode-badge" class="text-[10px] font-black px-2 py-0.5 rounded-full bg-blue-950 text-cyan-300 border border-cyan-400/50 whitespace-nowrap">
+                        約分スラッシュ
+                    </span>
+                </div>
+                <p class="text-[10px] text-slate-400 hidden sm:block truncate">左の巨大分数を、右の「÷コマンド」で斬って最小の既約分数にせよ！</p>
+            </div>
+        </div>
+
+        <div class="flex items-center gap-1 sm:gap-1.5 shrink-0">
+            <button id="btn-quit" class="px-2.5 h-9 rounded-xl bg-rose-950/90 hover:bg-rose-900 border border-rose-400/50 text-rose-200 font-black text-xs flex items-center gap-1 transition whitespace-nowrap">
+                <i class="fa-solid fa-right-from-bracket"></i> <span class="hidden sm:inline">やめる</span>
+            </button>
+            <button id="btn-pause" class="px-2.5 h-9 rounded-xl bg-slate-800/90 hover:bg-slate-700 border border-slate-600 text-slate-200 font-black text-xs flex items-center gap-1 transition whitespace-nowrap">
+                <i class="fa-solid fa-pause"></i> <span class="hidden sm:inline">一時停止</span>
+            </button>
+            <button id="btn-records" class="px-2.5 h-9 rounded-xl bg-amber-950/90 hover:bg-amber-900 border border-amber-500/50 text-amber-300 font-black text-xs flex items-center gap-1 transition whitespace-nowrap">
+                <i class="fa-solid fa-trophy"></i> <span class="hidden sm:inline">記録</span>
+            </button>
+            <button id="btn-help" class="w-9 h-9 rounded-xl bg-slate-800/90 hover:bg-slate-700 border border-slate-600 text-slate-200 flex items-center justify-center transition shrink-0">
+                <i class="fa-solid fa-question text-sm"></i>
+            </button>
+            <button id="btn-bgm" class="w-9 h-9 rounded-xl bg-slate-800/90 hover:bg-slate-700 border border-slate-600 text-emerald-400 flex items-center justify-center transition shrink-0">
+                <i id="icon-bgm" class="fa-solid fa-music text-sm"></i>
+            </button>
+            <button id="btn-sound" class="w-9 h-9 rounded-xl bg-slate-800/90 hover:bg-slate-700 border border-slate-600 text-amber-400 flex items-center justify-center transition shrink-0">
+                <i id="icon-sound" class="fa-solid fa-volume-high text-sm"></i>
+            </button>
+        </div>
+    </header>
+
+    <!-- メインバトル画面 -->
+    <main class="relative z-20 flex-1 w-full max-w-4xl mx-auto px-3 py-1.5 flex flex-col justify-between gap-2.5">
+
+        <!-- 上部：FF風ステータスウィンドウ -->
+        <section class="ff-window p-2.5 sm:p-3">
+            <div class="flex flex-wrap items-center justify-between gap-2 mb-2">
+                <!-- ステージ選択タブ -->
+                <div class="inline-flex bg-slate-950/90 p-1 rounded-xl border border-slate-700">
+                    <button id="diff-normal" class="px-2.5 py-1 rounded-lg text-xs font-black transition text-slate-400 hover:text-white whitespace-nowrap">
+                        🟢 通常モンスター
+                    </button>
+                    <button id="diff-sector" class="px-2.5 py-1 rounded-lg text-xs font-black transition bg-blue-600 text-white shadow whitespace-nowrap">
+                        🍕 おうぎ形・360°特訓 (おすすめ!)
+                    </button>
+                </div>
+
+                <!-- プレイヤー・歴代最大・ギル(コイン) -->
+                <div class="flex flex-wrap items-center gap-1.5">
+                    <div class="px-2.5 py-1 rounded-full bg-slate-950/90 border border-blue-400/40 text-[11px] font-black text-blue-200 flex items-center gap-1 whitespace-nowrap">
+                        🗡️ <span id="stat-player-name">ゲスト</span>
+                    </div>
+                    <div class="px-2.5 py-1 rounded-full bg-slate-950/90 border border-amber-400/40 text-[11px] font-black text-amber-300 flex items-center gap-1 whitespace-nowrap">
+                        👑 歴代最大: <span id="stat-alltime-max">0</span>
+                    </div>
+                    <div class="px-2.5 py-1 rounded-full bg-slate-950/90 border border-amber-400/50 text-xs font-black text-amber-300 flex items-center gap-1 whitespace-nowrap">
+                        🪙 <span id="stat-coins">500</span> GIL
+                    </div>
+                </div>
+            </div>
+
+            <!-- 4連メトリクス -->
+            <div class="grid grid-cols-2 sm:grid-cols-4 gap-2 text-center">
+                <div class="bg-slate-950/80 border border-pink-400/30 rounded-xl p-1.5 sm:p-2">
+                    <div class="text-[10px] font-black text-pink-300">💥 今回最大一撃</div>
+                    <div id="stat-max-hit" class="text-xs sm:text-sm font-black text-pink-200 whitespace-nowrap mt-0.5">0ダメージ</div>
+                </div>
+                <div class="bg-slate-950/80 border border-slate-700 rounded-xl p-1.5 sm:p-2">
+                    <div class="text-[10px] font-black text-cyan-300">TOTAL DAMAGE</div>
+                    <div class="mt-0.5 flex items-baseline justify-center gap-1">
+                        <span id="stat-total-dmg" class="text-xs sm:text-sm font-black text-white whitespace-nowrap">0</span>
+                        <span id="stat-score" class="text-[10px] text-slate-300 font-bold whitespace-nowrap">(0体)</span>
+                    </div>
+                </div>
+                <div class="bg-slate-950/80 border border-slate-700 rounded-xl p-1.5 sm:p-2">
+                    <div class="text-[10px] font-black text-emerald-300">ATB TIME (残り時間)</div>
+                    <div id="stat-time" class="text-sm sm:text-base font-black text-emerald-400 mt-0.5">45.0秒</div>
+                </div>
+                <div class="bg-slate-950/80 border border-slate-700 rounded-xl p-1.5 sm:p-2">
+                    <div class="text-[10px] font-black text-amber-300">CHAIN COMBO</div>
+                    <div id="stat-combo" class="text-sm sm:text-base font-black text-amber-400 mt-0.5">0 連撃</div>
+                </div>
+            </div>
+        </section>
+
+        <!-- FF風バトルメッセージバー（上部アナウンス） -->
+        <div id="battle-log-bar" class="ff-window py-2 px-4 text-center font-black text-xs sm:text-sm text-cyan-200 min-h-[38px] flex items-center justify-center">
+            ⚔️ 右のコマンドから「分子と分母の両方を割れる数」を選んで斬りつけろ！
+        </div>
+
+        <!-- ★メインバトルフィールド（左：巨大分数モンスター ／ 右：FFコマンドウィンドウ） -->
+        <div class="grid grid-cols-12 gap-2.5 sm:gap-4 my-auto items-stretch">
+
+            <!-- 【左側 7列】巨大分数モンスター登場エリア -->
+            <div id="monster-stage" class="col-span-7 ff-window p-3 sm:p-5 flex flex-col justify-between relative overflow-hidden min-h-[260px] sm:min-h-[310px]">
+                <!-- 斬撃エフェクト挿入先 -->
+                <div id="slash-fx-container" class="absolute inset-0 pointer-events-none"></div>
+
+                <!-- モンスター名＆おうぎ形バッジ -->
+                <div class="flex items-center justify-between gap-1 z-10">
+                    <div class="flex items-center gap-1.5">
+                        <span id="monster-icon" class="text-2xl sm:text-3xl">🐉</span>
+                        <div>
+                            <div id="monster-name" class="text-xs sm:text-sm font-black text-amber-300 leading-tight">フラクション・ベヒーモス</div>
+                            <div id="monster-sub" class="text-[10px] font-bold text-cyan-300">最大公約数で一刀両断せよ！</div>
+                        </div>
+                    </div>
+                    <span id="slash-step-badge" class="text-[10px] font-black px-2 py-0.5 rounded-full bg-slate-950/90 border border-cyan-400/50 text-cyan-300 whitespace-nowrap">
+                        斬撃 0手目
+                    </span>
+                </div>
+
+                <!-- 巨大分数表示（メインターゲット） -->
+                <div id="monster-body" class="my-auto py-2 flex flex-col items-center justify-center relative z-10">
+                    <div id="fraction-monster-display" class="text-5xl sm:text-7xl font-black text-white font-mono tracking-tight drop-shadow-[0_0_24px_rgba(56,189,248,0.65)] transition-transform duration-150">
+                        <!-- JSで巨大な分数を描画 -->
+                    </div>
+                    <div id="fraction-history-trail" class="mt-2 text-xs sm:text-sm font-black text-amber-300 min-h-[20px]">
+                        <!-- 途中経過（例: 60/360 ➔ 10/60）を表示 -->
+                    </div>
+                </div>
+
+                <!-- モンスターHPゲージ（約分が進むほど削れる！） -->
+                <div class="z-10">
+                    <div class="flex items-center justify-between text-[10px] font-black text-slate-300 mb-1">
+                        <span>MONSTER HP（数字を小さくして撃破せよ！）</span>
+                        <span id="monster-hp-text" class="text-amber-300">100%</span>
+                    </div>
+                    <div class="w-full h-3 bg-slate-950 rounded-full overflow-hidden border border-slate-600 p-0.5">
+                        <div id="monster-hp-bar" class="h-full bg-gradient-to-r from-emerald-400 via-cyan-400 to-blue-500 rounded-full transition-all duration-300" style="width: 100%;"></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 【右側 5列】FF伝統コマンドウィンドウ（÷2、÷3、÷12...） -->
+            <div class="col-span-5 ff-window p-2.5 sm:p-4 flex flex-col justify-between">
+                <div>
+                    <div class="flex items-center justify-between border-b border-slate-400/40 pb-1.5 mb-2">
+                        <span class="text-xs sm:text-sm font-black text-amber-300 tracking-wider flex items-center gap-1">
+                            👉 COMMAND
+                        </span>
+                        <span class="text-[10px] font-bold text-slate-300">剣技を選択</span>
+                    </div>
+
+                    <!-- 割り算コマンドボタン一覧（2列×5段＝10個の刀コマンド） -->
+                    <div id="command-grid" class="grid grid-cols-2 gap-1.5 sm:gap-2">
+                        <!-- JSで ÷2, ÷3, ÷4 ... ÷90 などを生成 -->
+                    </div>
+                </div>
+
+                <!-- 補助コマンド（みやぶるヒント ＆ とんずらパス） -->
+                <div class="grid grid-cols-1 gap-1.5 mt-2.5 pt-2 border-t border-slate-400/30">
+                    <button id="btn-free-hint" class="py-1.5 px-2 rounded-lg bg-amber-950/90 hover:bg-amber-800 border border-amber-400/70 text-amber-200 font-black text-[11px] sm:text-xs flex items-center justify-center gap-1 transition">
+                        🔍 みやぶる (無料ヒント)
+                    </button>
+                    <button id="btn-skip" class="py-1.5 px-2 rounded-lg bg-slate-900/90 hover:bg-slate-800 border border-slate-600 text-slate-300 font-bold text-[11px] sm:text-xs flex items-center justify-center gap-1 transition">
+                        🏃 とんずら (次の敵へ)
+                    </button>
+                </div>
+            </div>
+
+        </div>
+
+        <!-- 下部：召喚獣＆リミット技パネル（GIL消費） -->
+        <div class="ff-window p-2.5">
+            <div class="flex items-center justify-between mb-1.5 px-1">
+                <span class="text-[11px] font-black text-cyan-300 flex items-center gap-1.5">
+                    <i class="fa-solid fa-wand-magic-sparkles text-amber-400"></i> リミット技・召喚コマンド（GIL消費）
+                </span>
+                <span id="aura-badge" class="text-[11px] font-black px-2.5 py-0.5 rounded-full bg-slate-900 text-slate-300 border border-slate-600">
+                    オーラ倍率: ×1.0 (通常)
+                </span>
+            </div>
+            <div class="grid grid-cols-3 gap-2">
+                <button id="btn-zantetsuken" class="py-2 px-2 rounded-xl bg-gradient-to-r from-rose-700 to-pink-600 hover:from-rose-600 hover:to-pink-500 text-white font-black text-xs shadow-lg border border-rose-300/50 flex flex-col items-center justify-center gap-0.5 transition active:scale-95">
+                    <div class="flex items-center gap-1 whitespace-nowrap">⚔️ 斬鉄剣(一撃必殺)</div>
+                    <span class="text-[10px] bg-black/40 px-2 py-0.5 rounded-full text-amber-300">🪙 150 GIL</span>
+                </button>
+                <button id="btn-stop-magic" class="py-2 px-2 rounded-xl bg-gradient-to-r from-sky-700 to-cyan-600 hover:from-sky-600 hover:to-cyan-500 text-white font-black text-xs shadow-lg border border-sky-300/50 flex flex-col items-center justify-center gap-0.5 transition active:scale-95">
+                    <div class="flex items-center gap-1 whitespace-nowrap">⏳ 時魔法ストップ(+15秒)</div>
+                    <span class="text-[10px] bg-black/40 px-2 py-0.5 rounded-full text-amber-300">🪙 100 GIL</span>
+                </button>
+                <button id="btn-gacha" class="py-2 px-2 rounded-xl bg-gradient-to-r from-amber-500 via-orange-500 to-fuchsia-600 hover:from-amber-400 hover:to-fuchsia-500 text-white font-black text-xs shadow-lg border border-amber-200/60 flex flex-col items-center justify-center gap-0.5 transition active:scale-95">
+                    <div class="flex items-center gap-1 whitespace-nowrap">💎 クリスタル召喚ガチャ</div>
+                    <span class="text-[10px] bg-black/40 px-2 py-0.5 rounded-full text-amber-200">🪙 80 GIL</span>
+                </button>
+            </div>
+        </div>
+    </main>
+
+    <!-- 1. タイトル画面モーダル -->
+    <div id="modal-title" class="fixed inset-0 z-50 bg-slate-950/95 backdrop-blur-md flex items-center justify-center p-4">
+        <div class="w-full max-w-md ff-window p-6 text-center">
+            <div class="w-16 h-16 mx-auto mb-3 rounded-2xl bg-gradient-to-br from-blue-500 via-indigo-600 to-cyan-400 border-2 border-white flex items-center justify-center shadow-lg font-black text-3xl text-white">
+                ⚔️
+            </div>
+            <h2 class="text-2xl sm:text-3xl font-black tracking-wider text-white">FINAL FRACTION</h2>
+            <p class="text-xs text-cyan-300 mt-1 mb-4">〜 約分スラッシュ・バトル 〜</p>
+
+            <!-- プレイヤー名入力 -->
+            <div class="text-left mb-3.5">
+                <label for="input-player-name" class="text-xs font-black text-slate-200 block mb-1">👤 プレイヤー名（ランキングに記録されます）</label>
+                <input id="input-player-name" type="text" value="" placeholder="なまえを入力（空欄でもOK）" maxlength="12" class="w-full px-3.5 py-2 rounded-xl bg-slate-950 border border-slate-500 text-white font-bold text-sm focus:outline-none focus:border-amber-400 placeholder:text-slate-500">
+            </div>
+
+            <!-- 出現モンスター（モード）選択 -->
+            <div class="text-left mb-4">
+                <label class="text-xs font-black text-slate-200 block mb-1.5">🐉 出現モンスター選択</label>
+                <div class="grid grid-cols-2 gap-2">
+                    <button id="title-diff-normal" class="py-2.5 px-2.5 rounded-xl font-black text-xs border border-slate-600 bg-slate-900/80 text-slate-400 transition">
+                        🟢 通常モンスター<br><span class="text-[10px] font-normal">12/18 や 24/36 など基本約分</span>
+                    </button>
+                    <button id="title-diff-sector" class="py-2.5 px-2.5 rounded-xl font-black text-xs border-2 border-amber-400 bg-blue-950/90 text-amber-200 transition">
+                        🍕 おうぎ形・360°特訓<br><span class="text-[10px] font-normal">60/360 等の角度＋通常ミックス!</span>
+                    </button>
+                </div>
+            </div>
+
+            <!-- 制限時間選択 -->
+            <div class="text-left mb-5">
+                <label class="text-xs font-black text-slate-200 block mb-1.5">⏱️ ATB制限時間（1体あたり）</label>
+                <div class="grid grid-cols-3 gap-2">
+                    <button data-time="45" class="title-time-btn py-2 px-2 rounded-xl font-black text-xs border-2 border-cyan-400 bg-cyan-950/80 text-cyan-200 transition">
+                        🐢 45秒<br><span class="text-[10px] font-normal">じっくり</span>
+                    </button>
+                    <button data-time="25" class="title-time-btn py-2 px-2 rounded-xl font-black text-xs border border-slate-600 bg-slate-900/80 text-slate-400 transition">
+                        ⚡ 25秒<br><span class="text-[10px] font-normal">ふつう</span>
+                    </button>
+                    <button data-time="15" class="title-time-btn py-2 px-2 rounded-xl font-black text-xs border border-slate-600 bg-slate-900/80 text-slate-400 transition">
+                        🚀 15秒<br><span class="text-[10px] font-normal">ガチ速</span>
+                    </button>
+                </div>
+            </div>
+
+            <!-- バトル開始ボタン -->
+            <div class="flex flex-col gap-2.5">
+                <button id="btn-start-score" class="w-full py-3.5 rounded-2xl bg-gradient-to-r from-amber-400 via-yellow-400 to-orange-500 hover:from-amber-300 hover:to-orange-400 text-slate-950 font-black text-sm shadow-lg transition active:scale-95">
+                    ⚔️ スコアモードで出撃（ATB時間制限＆超ドパ感！）
+                </button>
+                <button id="btn-start-endless" class="w-full py-3 rounded-2xl bg-slate-900/90 hover:bg-slate-800 border border-slate-500 text-slate-200 font-black text-xs transition active:scale-95">
+                    ☕ 無限トレーニングで出撃（時間無制限でじっくり約分）
+                </button>
+            </div>
+
+            <div class="grid grid-cols-2 gap-2 mt-4 pt-4 border-t border-slate-600/60">
+                <button id="btn-title-records" class="py-2 rounded-xl bg-amber-950/70 hover:bg-amber-900 border border-amber-400/50 text-amber-300 font-bold text-xs">
+                    🏆 歴代記録を見る
+                </button>
+                <button id="btn-title-help" class="py-2 rounded-xl bg-slate-900/80 hover:bg-slate-800 border border-slate-600 text-slate-200 font-bold text-xs">
+                    ❓ 遊び方・一刀両断のコツ
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 2. 一時停止モーダル -->
+    <div id="modal-pause" class="fixed inset-0 z-50 bg-slate-950/90 backdrop-blur-md hidden items-center justify-center p-4">
+        <div class="w-full max-w-sm ff-window p-6 text-center">
+            <h3 class="text-xl font-black text-white mb-2">⏸️ PAUSE（一時停止中）</h3>
+            <p class="text-xs text-slate-300 mb-5">ATBタイマーはストップしています</p>
+            <div class="flex flex-col gap-2.5">
+                <button id="btn-resume" class="w-full py-3 rounded-xl bg-cyan-400 hover:bg-cyan-300 text-slate-950 font-black text-sm">
+                    ▶️ バトルを再開する
+                </button>
+                <button id="btn-pause-records" class="w-full py-2.5 rounded-xl bg-amber-950/80 hover:bg-amber-900 border border-amber-400/40 text-amber-300 font-black text-xs">
+                    🏆 歴代記録を確認する
+                </button>
+                <button id="btn-pause-quit" class="w-full py-2.5 rounded-xl bg-rose-950/80 hover:bg-rose-900 border border-rose-400/40 text-rose-200 font-bold text-xs">
+                    🏠 タイトル画面へ戻る
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 3. 20連勝ごとの区切りモーダル -->
+    <div id="modal-break" class="fixed inset-0 z-50 bg-slate-950/90 backdrop-blur-md hidden items-center justify-center p-4">
+        <div class="w-full max-w-sm ff-window p-6 text-center border-amber-400">
+            <div class="text-4xl mb-1">🎺</div>
+            <h3 id="break-title" class="text-2xl font-black text-amber-300 mb-1">20連勝達成！！</h3>
+            <p class="text-xs text-slate-200 mb-4">勝利のファンファーレ！ここでセーブして休む？それとも連戦を続ける？</p>
+            <div class="bg-slate-950/90 border border-slate-700 rounded-2xl p-3 mb-5 text-xs">
+                <div class="text-slate-400">ここまでの累計ダメージ</div>
+                <div id="break-total-dmg" class="text-base font-black text-pink-300 mt-0.5">0ダメージ</div>
+            </div>
+            <div class="flex flex-col gap-2.5">
+                <button id="btn-break-continue" class="w-full py-3 rounded-xl bg-gradient-to-r from-amber-400 to-emerald-400 hover:from-amber-300 hover:to-emerald-300 text-slate-950 font-black text-sm shadow-lg">
+                    ⚔️ 続ける（さらに限界突破！）
+                </button>
+                <button id="btn-break-quit" class="w-full py-2.5 rounded-xl bg-slate-900 hover:bg-slate-800 border border-slate-600 text-slate-200 font-bold text-xs">
+                    🏠 区切ってやめる（保存してタイトルへ）
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 4. タイムアップ確認＆リトライ選択モーダル -->
+    <div id="modal-timeup" class="fixed inset-0 z-50 bg-slate-950/90 backdrop-blur-md hidden items-center justify-center p-4">
+        <div class="w-full max-w-md ff-window p-6 text-center border-rose-500">
+            <div class="text-3xl mb-1">⏰</div>
+            <h3 class="text-xl font-black text-rose-400 mb-1">TIME UP!（時間切れ）</h3>
+            <p class="text-xs text-slate-200 mb-3">出現モンスター：<span id="timeup-problem" class="font-black text-amber-300 text-sm"></span></p>
+
+            <div class="mb-5">
+                <button id="btn-reveal-answer" class="px-4 py-2 rounded-xl bg-slate-900 hover:bg-slate-800 border border-amber-400/50 text-amber-300 font-black text-xs transition">
+                    🔑 最大公約数と答えを見る
+                </button>
+                <div id="timeup-answer-box" class="hidden mt-2 p-3 rounded-xl bg-slate-950 border border-cyan-400/50 text-cyan-200 font-black text-sm">
+                    <span id="timeup-solution"></span>
+                </div>
+            </div>
+
+            <div class="flex flex-col sm:flex-row gap-2.5">
+                <button id="btn-timeup-retry" class="flex-1 py-3 rounded-xl bg-amber-400 hover:bg-amber-300 text-slate-950 font-black text-xs sm:text-sm shadow-lg">
+                    🔄 同じ敵にリトライ！
+                </button>
+                <button id="btn-timeup-next" class="flex-1 py-3 rounded-xl bg-cyan-400 hover:bg-cyan-300 text-slate-950 font-black text-xs sm:text-sm shadow-lg">
+                    ➡️ 次のモンスターへ
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 5. 歴代記録モーダル -->
+    <div id="modal-records" class="fixed inset-0 z-50 bg-slate-950/90 backdrop-blur-md hidden items-center justify-center p-4">
+        <div class="w-full max-w-md ff-window p-5">
+            <div class="flex items-center justify-between mb-4">
+                <h3 class="text-lg font-black text-amber-300 flex items-center gap-2">
+                    <i class="fa-solid fa-trophy"></i> 歴代バトルレコード
+                </h3>
+                <button id="btn-close-records" class="w-8 h-8 rounded-lg bg-slate-900 text-slate-300 hover:bg-slate-800">✕</button>
+            </div>
+
+            <div class="grid grid-cols-2 gap-2.5 mb-4">
+                <div class="bg-slate-950/90 border border-amber-500/40 rounded-xl p-3">
+                    <div class="text-[10px] font-bold text-amber-400">👑 歴代最大一撃</div>
+                    <div id="rec-max-single" class="text-sm sm:text-base font-black text-white mt-0.5">0ダメージ</div>
+                    <div id="rec-max-formula" class="text-[11px] text-cyan-300 font-bold mt-1 truncate">記録なし</div>
+                    <div id="rec-max-player" class="text-[10px] text-indigo-300 font-bold mt-0.5 truncate">👤 -</div>
+                </div>
+                <div class="bg-slate-950/90 border border-slate-700 rounded-xl p-3">
+                    <div class="text-[10px] font-bold text-slate-300">🔥 累計撃破 / 最大連撃</div>
+                    <div id="rec-total-solved" class="text-sm sm:text-base font-black text-white mt-0.5">0体撃破</div>
+                    <div id="rec-max-combo" class="text-[11px] text-amber-400 font-bold mt-1">最大 0 連撃</div>
+                </div>
+            </div>
+
+            <div class="text-xs font-black text-slate-200 mb-2">💥 歴代一撃ダメージ TOP 5</div>
+            <div id="rec-ranking-list" class="space-y-1.5 max-h-48 overflow-y-auto pr-1">
+                <!-- JSでランキング描画 -->
+            </div>
+
+            <button id="btn-close-records-bottom" class="mt-4 w-full py-2.5 rounded-xl bg-slate-900 hover:bg-slate-800 border border-slate-600 text-white font-black text-xs">
+                閉じる
+            </button>
+        </div>
+    </div>
+
+    <!-- 6. 遊び方モーダル -->
+    <div id="modal-help" class="fixed inset-0 z-50 bg-slate-950/90 backdrop-blur-md hidden items-center justify-center p-4">
+        <div class="w-full max-w-md ff-window p-5">
+            <div class="flex items-center justify-between mb-3">
+                <h3 class="text-lg font-black text-amber-300">❓ 遊び方・約分バトルの極意</h3>
+                <button id="btn-close-help" class="w-8 h-8 rounded-lg bg-slate-900 text-slate-300 hover:bg-slate-800">✕</button>
+            </div>
+            <div class="space-y-2.5 text-xs text-slate-200 leading-relaxed">
+                <div class="bg-slate-950/90 p-3 rounded-xl border border-slate-700">
+                    <div class="font-black text-cyan-300 mb-1">① 右の「÷コマンド」で分子と分母を斬れ！</div>
+                    左のモンスター（例：<strong>24/36</strong>）に対して、右のコマンドから両方とも割り切れる数（<strong>÷2、÷3、÷6、÷12</strong>など）を選んで斬りつけます。これ以上割れない<strong>最小の分数（2/3）</strong>にした瞬間にモンスター撃破！
+                </div>
+                <div class="bg-slate-950/90 p-3 rounded-xl border border-slate-700">
+                    <div class="font-black text-amber-300 mb-1">② 「一刀両断ボーナス（×3.0倍）」を狙え！</div>
+                    段階的に「÷2 ➔ ÷6」と2回に分けて斬っても倒せますが、最初から最大公約数（例：<strong>÷12</strong> や <strong>÷60</strong>）を見抜いて<strong>1撃で最小分数にすると「⚡一刀両断 LIMIT BREAK!!」でダメージが3倍</strong>に跳ね上がります！
+                </div>
+                <div class="bg-slate-950/90 p-3 rounded-xl border border-slate-700">
+                    <div class="font-black text-pink-300 mb-1">③ 🍕おうぎ形・360°特訓モード搭載！</div>
+                    「60/360（中心角60°）」や「45/360」「120/360」など、円の面積・おうぎ形で超頻出する約分モンスターが次々と登場します！
+                </div>
+            </div>
+            <button id="btn-close-help-bottom" class="mt-4 w-full py-2.5 rounded-xl bg-cyan-400 hover:bg-cyan-300 text-slate-950 font-black text-xs transition">
+                わかった！いざ出陣！
+            </button>
+        </div>
+    </div>
+
+    <script>
+        // ==========================================
+        // 1. サウンド＆FFバトル風BGM・ファンファーレエンジン
+        // ==========================================
+        const Sound = {
+            enabled: true,
+            bgmEnabled: true,
+            ctx: null,
+            bgmTimer: null,
+            bgmStep: 0,
+            init() {
+                if (!this.ctx) {
+                    const AudioCtx = window.AudioContext || window.webkitAudioContext;
+                    if (AudioCtx) this.ctx = new AudioCtx();
+                }
+                if (this.ctx && this.ctx.state === 'suspended') {
+                    this.ctx.resume();
+                }
+            },
+            startBGM() {
+                this.stopBGM();
+                if (!this.bgmEnabled) return;
+                this.init();
+                // FFバトル風の疾走感あるアルペジオ＆ベースライン
+                const melody = [
+                    329.63, 392.00, 493.88, 659.25,
+                    587.33, 493.88, 392.00, 493.88,
+                    349.23, 440.00, 523.25, 698.46,
+                    659.25, 523.25, 440.00, 523.25
+                ];
+                const bass = [164.81, 164.81, 196.00, 196.00, 174.61, 174.61, 146.83, 196.00];
+                this.bgmTimer = setInterval(() => {
+                    if (!this.bgmEnabled || !State.isPlaying || State.isPaused) return;
+                    try {
+                        if (!this.ctx || this.ctx.state === 'suspended') return;
+                        const now = this.ctx.currentTime;
+                        const note = melody[this.bgmStep % melody.length];
+                        const bassNote = bass[this.bgmStep % bass.length];
+
+                        const osc = this.ctx.createOscillator();
+                        const gain = this.ctx.createGain();
+                        osc.type = 'triangle';
+                        osc.frequency.setValueAtTime(note, now);
+                        gain.gain.setValueAtTime(0.03, now);
+                        gain.gain.exponentialRampToValueAtTime(0.002, now + 0.14);
+                        osc.connect(gain);
+                        gain.connect(this.ctx.destination);
+                        osc.start(now);
+                        osc.stop(now + 0.14);
+
+                        const bOsc = this.ctx.createOscillator();
+                        const bGain = this.ctx.createGain();
+                        bOsc.type = 'sawtooth';
+                        bOsc.frequency.setValueAtTime(bassNote, now);
+                        bGain.gain.setValueAtTime(0.022, now);
+                        bGain.gain.exponentialRampToValueAtTime(0.002, now + 0.14);
+                        bOsc.connect(bGain);
+                        bGain.connect(this.ctx.destination);
+                        bOsc.start(now);
+                        bOsc.stop(now + 0.14);
+
+                        this.bgmStep++;
+                    } catch (e) {}
+                }, 160);
+            },
+            stopBGM() {
+                if (this.bgmTimer) {
+                    clearInterval(this.bgmTimer);
+                    this.bgmTimer = null;
+                }
+            },
+            play(type) {
+                if (!this.enabled) return;
+                try {
+                    this.init();
+                    if (!this.ctx) return;
+                    const now = this.ctx.currentTime;
+
+                    if (type === 'cursor') {
+                        // FF風の軽快なカーソル音「ピッ」
+                        const osc = this.ctx.createOscillator();
+                        const gain = this.ctx.createGain();
+                        osc.type = 'sine';
+                        osc.frequency.setValueAtTime(1480, now);
+                        osc.frequency.exponentialRampToValueAtTime(1760, now + 0.045);
+                        gain.gain.setValueAtTime(0.12, now);
+                        gain.gain.exponentialRampToValueAtTime(0.008, now + 0.045);
+                        osc.connect(gain);
+                        gain.connect(this.ctx.destination);
+                        osc.start(now);
+                        osc.stop(now + 0.045);
+                    } else if (type === 'slash') {
+                        // 鋭い斬撃音「ザシュッ！」
+                        const osc = this.ctx.createOscillator();
+                        const gain = this.ctx.createGain();
+                        osc.type = 'sawtooth';
+                        osc.frequency.setValueAtTime(920, now);
+                        osc.frequency.exponentialRampToValueAtTime(180, now + 0.16);
+                        gain.gain.setValueAtTime(0.22, now);
+                        gain.gain.exponentialRampToValueAtTime(0.01, now + 0.16);
+                        osc.connect(gain);
+                        gain.connect(this.ctx.destination);
+                        osc.start(now);
+                        osc.stop(now + 0.16);
+                    } else if (type === 'fanfare') {
+                        // FF勝利のファンファーレ風「タタタターン！」
+                        const notes = [
+                            { f: 523.25, t: 0.00, d: 0.09 },
+                            { f: 523.25, t: 0.10, d: 0.09 },
+                            { f: 523.25, t: 0.20, d: 0.09 },
+                            { f: 523.25, t: 0.30, d: 0.26 },
+                            { f: 415.30, t: 0.58, d: 0.22 },
+                            { f: 466.16, t: 0.82, d: 0.22 },
+                            { f: 523.25, t: 1.06, d: 0.12 },
+                            { f: 466.16, t: 1.20, d: 0.10 },
+                            { f: 523.25, t: 1.32, d: 0.45 }
+                        ];
+                        notes.forEach(n => {
+                            const o = this.ctx.createOscillator();
+                            const g = this.ctx.createGain();
+                            o.type = 'triangle';
+                            o.connect(g);
+                            g.connect(this.ctx.destination);
+                            o.frequency.setValueAtTime(n.f, now + n.t);
+                            g.gain.setValueAtTime(0.22, now + n.t);
+                            g.gain.exponentialRampToValueAtTime(0.008, now + n.t + n.d);
+                            o.start(now + n.t);
+                            o.stop(now + n.t + n.d);
+                        });
+                    } else if (type === 'limit') {
+                        // 一刀両断リミットブレイク音！
+                        const chord = [523.25, 659.25, 783.99, 1046.5, 1318.5, 1567.98];
+                        chord.forEach((freq, i) => {
+                            const o = this.ctx.createOscillator();
+                            const g = this.ctx.createGain();
+                            o.type = 'triangle';
+                            o.connect(g);
+                            g.connect(this.ctx.destination);
+                            o.frequency.setValueAtTime(freq, now + i * 0.038);
+                            g.gain.setValueAtTime(0.24, now + i * 0.038);
+                            g.gain.exponentialRampToValueAtTime(0.008, now + i * 0.038 + 0.32);
+                            o.start(now + i * 0.038);
+                            o.stop(now + i * 0.038 + 0.32);
+                        });
+                    } else if (type === 'wrong') {
+                        const osc = this.ctx.createOscillator();
+                        const gain = this.ctx.createGain();
+                        osc.type = 'sawtooth';
+                        osc.frequency.setValueAtTime(190, now);
+                        osc.frequency.linearRampToValueAtTime(115, now + 0.22);
+                        gain.gain.setValueAtTime(0.18, now);
+                        gain.gain.exponentialRampToValueAtTime(0.01, now + 0.22);
+                        osc.connect(gain);
+                        gain.connect(this.ctx.destination);
+                        osc.start(now);
+                        osc.stop(now + 0.22);
+                    }
+                } catch (e) {}
+            }
+        };
+
+        // ==========================================
+        // 2. 数学ヘルパー＆モンスター問題データ生成
+        // ==========================================
+        function gcd(a, b) {
+            a = Math.abs(a);
+            b = Math.abs(b);
+            while (b !== 0) {
+                const t = b;
+                b = a % b;
+                a = t;
+            }
+            return a || 1;
+        }
+
+        // おうぎ形の中心角で超頻出する「角度/360」モンスターリスト
+        const SECTOR_POOL = [
+            { num: 60, den: 360, title: '🍕 おうぎ形ゴーレム(中心角60°)' },
+            { num: 90, den: 360, title: '🍕 おうぎ形ドラゴン(中心角90°)' },
+            { num: 120, den: 360, title: '🍕 おうぎ形ベヒーモス(中心角120°)' },
+            { num: 180, den: 360, title: '🍕 おうぎ形タイタン(中心角180°)' },
+            { num: 45, den: 360, title: '🍕 おうぎ形フェンリル(中心角45°)' },
+            { num: 30, den: 360, title: '🍕 おうぎ形カーバンクル(中心角30°)' },
+            { num: 150, den: 360, title: '🍕 おうぎ形バハムート(中心角150°)' },
+            { num: 240, den: 360, title: '🍕 おうぎ形リヴァイアサン(中心角240°)' },
+            { num: 270, den: 360, title: '🍕 おうぎ形オーディン(中心角270°)' },
+            { num: 72, den: 360, title: '🍕 おうぎ形イフリート(中心角72°)' },
+            { num: 16, den: 6, title: '⭕ 半径4×4×(1/6) 面積キメラ' },
+            { num: 36, den: 6, title: '⭕ 半径6×6×(1/6) 面積ワイバーン' },
+            { num: 12, den: 4, title: '⭕ 直径12×(1/4) 弧長ガーディアン' }
+        ];
+
+        const MONSTER_LIST = [
+            { icon: '🐉', name: 'フラクション・ドラゴン' },
+            { icon: '👾', name: '約分ベヒーモス' },
+            { icon: '🤖', name: 'オメガ・ディバイダー' },
+            { icon: '🐙', name: 'オルトロス・ナンバーズ' },
+            { icon: '🦁', name: 'キング・キメラ' },
+            { icon: '🦅', name: 'ガルーダ・レシオ' }
+        ];
+
+        const AURA_TIERS = [
+            { name: '翠玉オーラ', mult: 1.5, badgeClass: 'bg-emerald-950 text-emerald-300 border-emerald-400', prob: 0.40 },
+            { name: '蒼天オーラ', mult: 2.0, badgeClass: 'bg-cyan-950 text-cyan-300 border-cyan-400', prob: 0.30 },
+            { name: '黄金オーラ', mult: 3.0, badgeClass: 'bg-amber-950 text-amber-300 border-amber-400', prob: 0.20 },
+            { name: '🌈 アルテマ虹神オーラ', mult: 5.0, badgeClass: 'bg-gradient-to-r from-pink-600 via-amber-500 to-cyan-500 text-white border-yellow-200', prob: 0.10 }
+        ];
+
+        const STORAGE_KEY = 'final_fraction_slash_save_v1';
+
+        const State = {
+            playerName: '',
+            mode: 'score',
+            difficulty: 'sector', // 'normal' | 'sector'
+            timeLimit: 45,
+            timeLeft: 45,
+            timerId: null,
+            roundTimeoutId: null,
+            isPlaying: false,
+            isPaused: false,
+            isResolving: false,
+            openedRecordsFromPause: false,
+
+            currentMonster: null,
+            curNum: 24,
+            curDen: 36,
+            slashSteps: 0,
+            mistakeInRound: false,
+            usedZantetsuken: false,
+            historyTrail: [],
+
+            coins: 500,
+            combo: 0,
+            solvedCount: 0,
+            totalDamage: 0,
+            maxSingleHit: 0,
+            auraMultiplier: 1.0,
+            auraName: '通常',
+            auraBadgeClass: 'bg-slate-900 text-slate-300 border-slate-600',
+
+            records: {
+                maxSingle: 0,
+                maxFormula: '記録なし',
+                maxPlayer: 'ゲスト',
+                totalSolved: 0,
+                maxCombo: 0,
+                topHits: []
+            }
+        };
+
+        function getDisplayPlayerName() {
+            const trimmed = (State.playerName || '').trim();
+            return trimmed.length > 0 ? trimmed : 'ゲスト';
+        }
+
+        function loadSavedData() {
+            try {
+                const raw = localStorage.getItem(STORAGE_KEY);
+                if (!raw) return;
+                const data = JSON.parse(raw);
+                if (typeof data.playerName === 'string') State.playerName = data.playerName;
+                if (typeof data.coins === 'number' && !isNaN(data.coins)) State.coins = data.coins;
+                if (data.records && typeof data.records === 'object') {
+                    State.records.maxSingle = Number(data.records.maxSingle) || 0;
+                    State.records.maxFormula = data.records.maxFormula || '記録なし';
+                    State.records.maxPlayer = data.records.maxPlayer || 'ゲスト';
+                    State.records.totalSolved = Number(data.records.totalSolved) || 0;
+                    State.records.maxCombo = Number(data.records.maxCombo) || 0;
+                    if (Array.isArray(data.records.topHits)) State.records.topHits = data.records.topHits;
+                }
+            } catch (e) {}
+        }
+
+        function saveData() {
+            try {
+                localStorage.setItem(STORAGE_KEY, JSON.stringify({
+                    playerName: State.playerName,
+                    coins: State.coins,
+                    records: State.records
+                }));
+            } catch (e) {}
+        }
+
+        function formatDamageText(num, compact = false) {
+            const n = Math.floor(num);
+            const suffix = compact ? '' : 'ダメージ';
+            if (n >= 1e16) return `${(n / 1e16).toFixed(2)}京${suffix}`;
+            if (n >= 1e12) return `${(n / 1e12).toFixed(2)}兆${suffix}`;
+            if (n >= 1e8) return `${(n / 1e8).toFixed(2)}億${suffix}`;
+            if (n >= 1e5) return `${(n / 1e4).toFixed(1)}万${suffix}`;
+            return `${n.toLocaleString('ja-JP')}${suffix}`;
+        }
+
+        // モンスター生成
+        function generateMonsterProblem() {
+            if (State.difficulty === 'sector' && Math.random() < 0.65) {
+                const pick = SECTOR_POOL[Math.floor(Math.random() * SECTOR_POOL.length)];
+                const g = gcd(pick.num, pick.den);
+                const mIcon = MONSTER_LIST[Math.floor(Math.random() * MONSTER_LIST.length)].icon;
+                return {
+                    initNum: pick.num,
+                    initDen: pick.den,
+                    targetNum: pick.num / g,
+                    targetDen: pick.den / g,
+                    maxGcd: g,
+                    icon: mIcon,
+                    name: pick.title,
+                    isSector: true
+                };
+            }
+
+            // 通常の約分問題生成：互いに素な (baseNum, baseDen) に公約数 factor を掛ける
+            const coprimePairs = [
+                [1, 2], [1, 3], [2, 3], [1, 4], [3, 4],
+                [1, 5], [2, 5], [3, 5], [4, 5],
+                [1, 6], [5, 6], [2, 7], [3, 8], [5, 8], [4, 9]
+            ];
+            const pair = coprimePairs[Math.floor(Math.random() * coprimePairs.length)];
+            const factors = [2, 3, 4, 5, 6, 8, 9, 12, 15, 18];
+            const factor = factors[Math.floor(Math.random() * factors.length)];
+
+            const initNum = pair[0] * factor;
+            const initDen = pair[1] * factor;
+            const mInfo = MONSTER_LIST[Math.floor(Math.random() * MONSTER_LIST.length)];
+
+            return {
+                initNum,
+                initDen,
+                targetNum: pair[0],
+                targetDen: pair[1],
+                maxGcd: factor,
+                icon: mInfo.icon,
+                name: mInfo.name,
+                isSector: false
+            };
+        }
+
+        // 右側のFFコマンドウィンドウに並べる「÷ボタン」を生成（必ず正解の約数と最大公約数を含める）
+        function buildCommandDivisors(num, den) {
+            const g = gcd(num, den);
+            const validDivisors = [];
+            for (let d = 2; d <= g; d++) {
+                if (g % d === 0) validDivisors.push(d);
+            }
+
+            const cmdSet = new Set();
+            // 定番の基本剣技
+            [2, 3, 4, 5, 6, 9, 10, 12].forEach(d => cmdSet.add(d));
+            // 現在の公約数をすべて追加（一刀両断用の最大公約数 g も必ず入る！）
+            validDivisors.forEach(d => cmdSet.add(d));
+
+            // もし10個を超える場合は、正解の公約数を優先しつつ10個に絞る
+            let finalCmds = [...validDivisors];
+            const candidates = [2, 3, 4, 5, 6, 7, 8, 9, 10, 12, 15, 18, 20, 30, 45, 60, 90];
+            for (const c of candidates) {
+                if (finalCmds.length >= 10) break;
+                if (!finalCmds.includes(c)) finalCmds.push(c);
+            }
+            finalCmds = finalCmds.slice(0, 10).sort((a, b) => a - b);
+            return finalCmds;
+        }
+
+        function renderMonsterAndCommands() {
+            const m = State.currentMonster;
+            document.getElementById('monster-icon').textContent = m.icon;
+            document.getElementById('monster-name').textContent = m.name;
+            document.getElementById('monster-sub').textContent = m.isSector
+                ? '🍕 おうぎ形・円の重要約分！一刀両断を狙え！'
+                : '⚔️ 最大公約数で一刀両断するとダメージ3倍！';
+
+            document.getElementById('slash-step-badge').textContent = `斬撃 ${State.slashSteps}手目`;
+
+            const disp = document.getElementById('fraction-monster-display');
+            disp.innerHTML = `
+                <div class="fraction-box">
+                    <div class="fraction-num">${State.curNum}</div>
+                    <div class="fraction-den">${State.curDen}</div>
+                </div>
+            `;
+
+            const trailEl = document.getElementById('fraction-history-trail');
+            trailEl.textContent = State.historyTrail.length > 0
+                ? State.historyTrail.join(' ➔ ')
+                : `初期状態: ${m.initNum}/${m.initDen}`;
+
+            // HPバー更新（現在の公約数 g が 1 になったら HP 0%）
+            const currentGcd = gcd(State.curNum, State.curDen);
+            let hpRatio = 0;
+            if (currentGcd > 1 && m.maxGcd > 1) {
+                hpRatio = Math.max(12, Math.round((Math.log(currentGcd) / Math.log(m.maxGcd)) * 100));
+            }
+            document.getElementById('monster-hp-bar').style.width = `${hpRatio}%`;
+            document.getElementById('monster-hp-text').textContent = currentGcd === 1 ? 'BREAK!! (0%)' : `残り約分HP: ${hpRatio}%`;
+
+            // 右側のFFコマンドボタン描画
+            const cmdGrid = document.getElementById('command-grid');
+            cmdGrid.innerHTML = '';
+            const cmds = buildCommandDivisors(State.curNum, State.curDen);
+
+            cmds.forEach(divVal => {
+                const btn = document.createElement('button');
+                btn.type = 'button';
+                btn.className = 'ff-cmd-btn py-2.5 sm:py-3 px-2 rounded-xl text-white font-black text-base sm:text-xl flex items-center justify-center gap-1 shadow-md group';
+                btn.innerHTML = `
+                    <span class="text-xs text-amber-300 opacity-85 group-hover:translate-x-0.5 transition-transform">🗡️</span>
+                    <span>÷${divVal}</span>
+                `;
+                btn.addEventListener('click', () => onExecuteSlashCommand(divVal));
+                cmdGrid.appendChild(btn);
+            });
+
+            // SSRオーラ発光反映
+            const stage = document.getElementById('monster-stage');
+            if (State.auraMultiplier >= 3.0) {
+                stage.classList.add('card-aura-ssr');
+            } else {
+                stage.classList.remove('card-aura-ssr');
+            }
+        }
+
+        function setBattleLog(html) {
+            const bar = document.getElementById('battle-log-bar');
+            if (bar) bar.innerHTML = html;
+        }
+
+        function triggerSlashVisual() {
+            const container = document.getElementById('slash-fx-container');
+            const slash = document.createElement('div');
+            slash.className = 'slash-line';
+            container.appendChild(slash);
+            setTimeout(() => slash.remove(), 380);
+
+            const body = document.getElementById('monster-body');
+            body.classList.remove('anim-damage');
+            void body.offsetWidth;
+            body.classList.add('anim-damage');
+        }
+
+        // ==========================================
+        // 3. 斬撃コマンド実行＆ダメージ計算
+        // ==========================================
+        function onExecuteSlashCommand(divisor) {
+            if (!State.isPlaying || State.isPaused || State.isResolving) return;
+
+            // 両方割り切れるかチェック
+            if (State.curNum % divisor === 0 && State.curDen % divisor === 0) {
+                const prevGcd = gcd(State.curNum, State.curDen);
+                const isOneShotMax = (State.slashSteps === 0 && divisor === prevGcd);
+
+                State.curNum = State.curNum / divisor;
+                State.curDen = State.curDen / divisor;
+                State.slashSteps++;
+                State.historyTrail.push(`(÷${divisor}) ➔ ${State.curNum}/${State.curDen}`);
+
+                triggerSlashVisual();
+
+                const remainingGcd = gcd(State.curNum, State.curDen);
+                renderMonsterAndCommands();
+
+                if (remainingGcd === 1) {
+                    // 既約分数に到達！モンスター撃破！
+                    completeMonsterDefeat(isOneShotMax, divisor);
+                } else {
+                    // まだ約分できる（多段階スラッシュ継続）
+                    Sound.play('slash');
+                    setBattleLog(
+                        `<span class="text-amber-300">⚔️ スラッシュ命中！「${State.curNum}/${State.curDen}」になった！まだ割れるぞ、追撃せよ！</span>`
+                    );
+                }
+            } else {
+                // 割り切れないコマンドを選んだ場合
+                Sound.play('wrong');
+                State.mistakeInRound = true;
+                let reason = '';
+                if (State.curNum % divisor !== 0 && State.curDen % divisor !== 0) {
+                    reason = `分子(${State.curNum})も分母(${State.curDen})も ${divisor} では割り切れません！`;
+                } else if (State.curNum % divisor !== 0) {
+                    reason = `分母は割れるけれど、分子(${State.curNum})が ${divisor} で割り切れません！`;
+                } else {
+                    reason = `分子は割れるけれど、分母(${State.curDen})が ${divisor} で割り切れません！`;
+                }
+                setBattleLog(`<span class="text-rose-400">🛡️ ガードされた！ ${reason}</span>`);
+            }
+        }
+
+        function completeMonsterDefeat(isOneShotMax, lastDivisor) {
+            if (State.isResolving) return;
+            State.isResolving = true;
+
+            if (isOneShotMax) {
+                Sound.play('limit');
+            } else {
+                Sound.play('slash');
+            }
+
+            const m = State.currentMonster;
+            State.combo++;
+            State.solvedCount++;
+
+            // ダメージ計算（一刀両断ボーナス×3.0倍、ノーミス×1.4倍、コンボ倍率、オーラ倍率）
+            const base = 2400 + Math.pow(m.maxGcd, 1.7) * 90 + m.initDen * 18;
+            const comboMult = Math.pow(1.42, Math.min(State.combo, 35));
+            const oneShotMult = isOneShotMax ? 3.0 : 1.0;
+            const noMissMult = State.mistakeInRound ? 1.0 : 1.4;
+            const timeBonus = State.mode === 'score' ? (1 + (State.timeLeft / State.timeLimit) * 1.3) : 1.0;
+
+            const rawDamage = Math.floor(base * comboMult * oneShotMult * noMissMult * timeBonus * State.auraMultiplier);
+            State.totalDamage += rawDamage;
+            if (rawDamage > State.maxSingleHit) State.maxSingleHit = rawDamage;
+
+            let earnedCoins = 0;
+            if (!State.usedZantetsuken) {
+                earnedCoins = 40 + Math.min(120, State.combo * 8) + (isOneShotMax ? 35 : 0);
+                State.coins += earnedCoins;
+            }
+
+            const finalText = State.curDen === 1 ? `${State.curNum}` : `${State.curNum}/${State.curDen}`;
+            const formulaStr = `${m.initNum}/${m.initDen} = ${finalText} (最大÷${m.maxGcd})`;
+            const pName = getDisplayPlayerName();
+
+            State.records.totalSolved++;
+            if (State.combo > State.records.maxCombo) State.records.maxCombo = State.combo;
+            if (rawDamage > State.records.maxSingle) {
+                State.records.maxSingle = rawDamage;
+                State.records.maxFormula = formulaStr;
+                State.records.maxPlayer = pName;
+            }
+            State.records.topHits.push({
+                player: pName,
+                damage: rawDamage,
+                formula: formulaStr,
+                combo: State.combo
+            });
+            State.records.topHits.sort((a, b) => b.damage - a.damage);
+            State.records.topHits = State.records.topHits.slice(0, 5);
+            saveData();
+
+            const dmgStr = formatDamageText(rawDamage, false);
+            let titleBanner = isOneShotMax ? '⚡ 一刀両断 LIMIT BREAK!!' : '⚔️ SLASH FINISH!!';
+            let colorClass = isOneShotMax ? 'text-amber-300' : 'text-cyan-300';
+            if (rawDamage >= 1e8) {
+                spawnConfetti(38);
+            } else if (isOneShotMax) {
+                spawnConfetti(22);
+            }
+
+            const coinNote = earnedCoins > 0 ? ` ＋🪙${earnedCoins} GIL` : '';
+            spawnFloatingText(`${titleBanner} ${dmgStr}`, `${formulaStr} (${State.combo}連撃${coinNote})`, colorClass);
+            setBattleLog(
+                `<span class="text-emerald-300 font-black">🎉 撃破！「${m.initNum}/${m.initDen} ➔ ${finalText}」 ${dmgStr}！！</span>`
+            );
+
+            updateHeaderStats();
+
+            if (State.combo > 0 && State.combo % 20 === 0) {
+                if (State.roundTimeoutId) clearTimeout(State.roundTimeoutId);
+                State.roundTimeoutId = setTimeout(() => {
+                    State.roundTimeoutId = null;
+                    if (State.isPlaying) openBreakModal();
+                }, 750);
+                return;
+            }
+
+            if (State.roundTimeoutId) clearTimeout(State.roundTimeoutId);
+            State.roundTimeoutId = setTimeout(() => {
+                State.roundTimeoutId = null;
+                if (State.isPlaying && !State.isPaused) setupNewRound(false);
+            }, 880);
+        }
+
+        function spawnFloatingText(mainText, subText = '', colorClass = 'text-amber-300') {
+            const layer = document.getElementById('fx-layer');
+            const div = document.createElement('div');
+            div.className = 'floating-dmg text-center';
+            div.innerHTML = `
+                <div class="text-2xl sm:text-4xl font-black ${colorClass} drop-shadow-[0_4px_16px_rgba(0,0,0,0.95)] whitespace-nowrap">${mainText}</div>
+                ${subText ? `<div class="text-xs sm:text-sm font-black text-white bg-slate-950/90 px-3 py-1 rounded-full border border-white/25 mt-1 inline-block">${subText}</div>` : ''}
+            `;
+            layer.appendChild(div);
+            setTimeout(() => div.remove(), 1300);
+        }
+
+        function spawnConfetti(count = 40) {
+            const layer = document.getElementById('fx-layer');
+            const colors = ['#38bdf8', '#facc15', '#f472b6', '#4ade80', '#c084fc', '#ffffff'];
+            for (let i = 0; i < count; i++) {
+                const piece = document.createElement('div');
+                piece.className = 'confetti-piece';
+                const size = 7 + Math.floor(Math.random() * 8);
+                piece.style.width = `${size}px`;
+                piece.style.height = `${Math.floor(size * 1.4)}px`;
+                piece.style.left = `${Math.random() * 100}vw`;
+                piece.style.backgroundColor = colors[Math.floor(Math.random() * colors.length)];
+                piece.style.setProperty('--drift', `${(Math.random() - 0.5) * 220}px`);
+                piece.style.setProperty('--dur', `${1.4 + Math.random() * 1.3}s`);
+                layer.appendChild(piece);
+                setTimeout(() => piece.remove(), 2800);
+            }
+        }
+
+        function resetAuraToDefault() {
+            State.auraMultiplier = 1.0;
+            State.auraName = '通常';
+            State.auraBadgeClass = 'bg-slate-900 text-slate-300 border-slate-600';
+        }
+
+        function setupNewRound(keepSame = false) {
+            if (!keepSame) {
+                State.currentMonster = generateMonsterProblem();
+                resetAuraToDefault();
+            }
+            State.curNum = State.currentMonster.initNum;
+            State.curDen = State.currentMonster.initDen;
+            State.slashSteps = 0;
+            State.mistakeInRound = false;
+            State.usedZantetsuken = false;
+            State.historyTrail = [];
+            State.isResolving = false;
+            State.timeLeft = State.timeLimit;
+
+            setBattleLog('⚔️ 右のコマンドから「分子と分母の両方を割れる数」を選んで斬りつけろ！');
+            renderMonsterAndCommands();
+            updateHeaderStats();
+            updateTimerUI();
+        }
+
+        // ==========================================
+        // 4. みやぶる（無料ヒント）＆リミット技
+        // ==========================================
+        function useFreeHint() {
+            if (!State.isPlaying || State.isPaused || State.isResolving) return;
+            Sound.play('cursor');
+            const g = gcd(State.curNum, State.curDen);
+            let smallDiv = 2;
+            for (let d = 2; d <= g; d++) {
+                if (g % d === 0) { smallDiv = d; break; }
+            }
+            if (g === smallDiv) {
+                setBattleLog(`<span class="text-amber-300 font-black">🔍 みやぶる：『÷${g}』を選べば一刀両断で倒せるぞ！</span>`);
+            } else {
+                setBattleLog(`<span class="text-amber-300 font-black">🔍 みやぶる：まずは『÷${smallDiv}』で斬るか、最大公約数『÷${g}』で一刀両断だ！</span>`);
+            }
+        }
+
+        function useZantetsuken() {
+            if (!State.isPlaying || State.isPaused || State.isResolving) return;
+            const cost = 150;
+            if (State.coins < cost) {
+                Sound.play('wrong');
+                setBattleLog(`<span class="text-rose-400">GILが足りません！（斬鉄剣: 🪙${cost} GIL）</span>`);
+                return;
+            }
+            State.coins -= cost;
+            State.usedZantetsuken = true;
+            const g = gcd(State.curNum, State.curDen);
+            onExecuteSlashCommand(g);
+        }
+
+        function useStopMagic() {
+            if (!State.isPlaying || State.isPaused || State.isResolving) return;
+            if (State.mode !== 'score') {
+                setBattleLog('<span class="text-sky-300">無限トレーニング中は時間制限はありません！</span>');
+                return;
+            }
+            const cost = 100;
+            if (State.coins < cost) {
+                Sound.play('wrong');
+                setBattleLog(`<span class="text-rose-400">GILが足りません！（時魔法ストップ: 🪙${cost} GIL）</span>`);
+                return;
+            }
+            State.coins -= cost;
+            State.timeLeft = Math.min(State.timeLimit + 15, State.timeLeft + 15);
+            Sound.play('cursor');
+            spawnFloatingText('⏳ STOP +15.0秒!', 'ATB制限時間を巻き戻した！', 'text-cyan-300');
+            updateTimerUI();
+            updateHeaderStats();
+            saveData();
+        }
+
+        function useCrystalGacha() {
+            if (!State.isPlaying || State.isPaused || State.isResolving) return;
+            const cost = 80;
+            if (State.coins < cost) {
+                Sound.play('wrong');
+                setBattleLog(`<span class="text-rose-400">GILが足りません！（クリスタル召喚ガチャ: 🪙${cost} GIL）</span>`);
+                return;
+            }
+            State.coins -= cost;
+
+            const r = Math.random();
+            let acc = 0;
+            let picked = AURA_TIERS[0];
+            for (const tier of AURA_TIERS) {
+                acc += tier.prob;
+                if (r <= acc) { picked = tier; break; }
+            }
+
+            State.auraMultiplier = picked.mult;
+            State.auraName = picked.name;
+            State.auraBadgeClass = picked.badgeClass;
+
+            renderMonsterAndCommands();
+            updateHeaderStats();
+            saveData();
+
+            Sound.play('limit');
+            spawnConfetti(picked.mult >= 3.0 ? 45 : 18);
+            spawnFloatingText(`💎 ${picked.name} (×${picked.mult.toFixed(1)}倍!)`, 'このモンスターへの斬撃威力が限界突破！', 'text-yellow-300');
+            setBattleLog(`<span class="text-amber-300 font-black">💎 召喚成功：『${picked.name}』発動！この1体のダメージが ×${picked.mult.toFixed(1)}倍！</span>`);
+        }
+
+        // ==========================================
+        // 5. ステータス＆ATBタイマー管理
+        // ==========================================
+        function updateHeaderStats() {
+            document.getElementById('stat-player-name').textContent = getDisplayPlayerName();
+            document.getElementById('stat-coins').textContent = State.coins.toLocaleString('ja-JP');
+            document.getElementById('stat-combo').textContent = `${State.combo} 連撃`;
+            document.getElementById('stat-total-dmg').textContent = formatDamageText(State.totalDamage, true);
+            document.getElementById('stat-score').textContent = `(${State.solvedCount}体)`;
+            document.getElementById('stat-max-hit').textContent = formatDamageText(State.maxSingleHit, false);
+            document.getElementById('stat-alltime-max').textContent = formatDamageText(State.records.maxSingle, true);
+
+            const auraBadge = document.getElementById('aura-badge');
+            if (auraBadge) {
+                const note = State.auraMultiplier > 1.0 ? '・この1体限定!' : '';
+                auraBadge.textContent = `オーラ倍率: ×${State.auraMultiplier.toFixed(1)} (${State.auraName}${note})`;
+                auraBadge.className = `text-[11px] font-black px-2.5 py-0.5 rounded-full border ${State.auraBadgeClass}`;
+            }
+
+            const diffNormalBtn = document.getElementById('diff-normal');
+            const diffSectorBtn = document.getElementById('diff-sector');
+            if (State.difficulty === 'normal') {
+                diffNormalBtn.className = 'px-2.5 py-1 rounded-lg text-xs font-black transition bg-emerald-600 text-white shadow whitespace-nowrap';
+                diffSectorBtn.className = 'px-2.5 py-1 rounded-lg text-xs font-black transition text-slate-400 hover:text-white whitespace-nowrap';
+            } else {
+                diffSectorBtn.className = 'px-2.5 py-1 rounded-lg text-xs font-black transition bg-blue-600 text-white shadow whitespace-nowrap';
+                diffNormalBtn.className = 'px-2.5 py-1 rounded-lg text-xs font-black transition text-slate-400 hover:text-white whitespace-nowrap';
+            }
+        }
+
+        function stopTimerLoop() {
+            if (State.timerId) {
+                clearInterval(State.timerId);
+                State.timerId = null;
+            }
+            if (State.roundTimeoutId) {
+                clearTimeout(State.roundTimeoutId);
+                State.roundTimeoutId = null;
+            }
+        }
+
+        function startTimerLoop() {
+            stopTimerLoop();
+            const lava = document.getElementById('lava-container');
+            if (State.mode === 'endless') {
+                lava.classList.add('hidden');
+                document.getElementById('stat-time').textContent = '∞ 無制限';
+                return;
+            }
+            lava.classList.remove('hidden');
+
+            State.timerId = setInterval(() => {
+                if (!State.isPlaying || State.isPaused || State.isResolving) return;
+                State.timeLeft = Math.max(0, State.timeLeft - 0.1);
+                updateTimerUI();
+                if (State.timeLeft <= 0) {
+                    onTimeUp();
+                }
+            }, 100);
+        }
+
+        function updateTimerUI() {
+            const timeEl = document.getElementById('stat-time');
+            const lava = document.getElementById('lava-container');
+            if (State.mode === 'endless') {
+                timeEl.textContent = '∞ 無制限';
+                lava.style.height = '0%';
+                return;
+            }
+            timeEl.textContent = `${State.timeLeft.toFixed(1)}秒`;
+            const ratio = Math.max(0, Math.min(1, 1 - State.timeLeft / State.timeLimit));
+            lava.style.height = `${(ratio * 92).toFixed(1)}%`;
+        }
+
+        function onTimeUp() {
+            State.isPaused = true;
+            State.combo = 0;
+            Sound.play('wrong');
+            updateHeaderStats();
+
+            const m = State.currentMonster;
+            document.getElementById('timeup-problem').textContent = `${m.initNum}/${m.initDen}`;
+            document.getElementById('timeup-solution').textContent =
+                `最大公約数「÷${m.maxGcd}」で割ると ➔ 正解は「${m.targetNum}/${m.targetDen}」！`;
+
+            document.getElementById('timeup-answer-box').classList.add('hidden');
+            const modal = document.getElementById('modal-timeup');
+            modal.classList.remove('hidden');
+            modal.classList.add('flex');
+        }
+
+        function openBreakModal() {
+            State.isPaused = true;
+            Sound.play('fanfare');
+            spawnConfetti(55);
+            document.getElementById('break-title').textContent = `🎺 ${State.combo}連勝達成！！`;
+            document.getElementById('break-total-dmg').textContent = formatDamageText(State.totalDamage, false);
+            const m = document.getElementById('modal-break');
+            m.classList.remove('hidden');
+            m.classList.add('flex');
+        }
+
+        function renderRecordsModal() {
+            document.getElementById('rec-max-single').textContent = formatDamageText(State.records.maxSingle, false);
+            document.getElementById('rec-max-formula').textContent = State.records.maxFormula;
+            document.getElementById('rec-max-player').textContent = `👤 ${State.records.maxPlayer || 'ゲスト'}`;
+            document.getElementById('rec-total-solved').textContent = `${State.records.totalSolved}体撃破`;
+            document.getElementById('rec-max-combo').textContent = `最大 ${State.records.maxCombo} 連撃`;
+
+            const list = document.getElementById('rec-ranking-list');
+            list.innerHTML = '';
+            if (State.records.topHits.length === 0) {
+                list.innerHTML = `<div class="text-xs text-slate-400 py-4 text-center">まだ記録がありません。一刀両断でハイスコアを出そう！</div>`;
+                return;
+            }
+            State.records.topHits.forEach((item, idx) => {
+                const row = document.createElement('div');
+                row.className = 'flex items-center justify-between bg-slate-950/90 border border-slate-700 rounded-xl px-3 py-2 text-xs';
+                row.innerHTML = `
+                    <div class="flex items-center gap-2 truncate">
+                        <span class="font-black text-amber-400">#${idx + 1}</span>
+                        <span class="px-1.5 py-0.5 rounded bg-blue-950 border border-blue-400/40 text-[10px] font-black text-blue-200 whitespace-nowrap">👤 ${item.player || 'ゲスト'}</span>
+                        <span class="font-bold text-slate-200 truncate">${item.formula}</span>
+                    </div>
+                    <div class="font-black text-pink-300 whitespace-nowrap ml-2">${formatDamageText(item.damage, false)}</div>
+                `;
+                list.appendChild(row);
+            });
+        }
+
+        // ==========================================
+        // 6. イベントリスナー登録
+        // ==========================================
+        window.addEventListener('DOMContentLoaded', () => {
+            loadSavedData();
+            const nameInputEl = document.getElementById('input-player-name');
+            if (nameInputEl) {
+                nameInputEl.value = State.playerName || '';
+                nameInputEl.addEventListener('input', () => {
+                    State.playerName = nameInputEl.value.trim();
+                    updateHeaderStats();
+                    saveData();
+                });
+            }
+
+            document.getElementById('btn-free-hint').addEventListener('click', useFreeHint);
+            document.getElementById('btn-skip').addEventListener('click', () => {
+                if (!State.isPlaying || State.isPaused || State.isResolving) return;
+                Sound.play('cursor');
+                State.combo = 0;
+                setupNewRound(false);
+            });
+
+            document.getElementById('btn-zantetsuken').addEventListener('click', useZantetsuken);
+            document.getElementById('btn-stop-magic').addEventListener('click', useStopMagic);
+            document.getElementById('btn-gacha').addEventListener('click', useCrystalGacha);
+
+            // 難易度切替
+            document.getElementById('diff-normal').addEventListener('click', () => {
+                if (State.difficulty === 'normal') return;
+                State.difficulty = 'normal';
+                Sound.play('cursor');
+                if (State.isPlaying) setupNewRound(false);
+                else updateHeaderStats();
+            });
+            document.getElementById('diff-sector').addEventListener('click', () => {
+                if (State.difficulty === 'sector') return;
+                State.difficulty = 'sector';
+                Sound.play('cursor');
+                if (State.isPlaying) setupNewRound(false);
+                else updateHeaderStats();
+            });
+
+            const titleNormal = document.getElementById('title-diff-normal');
+            const titleSector = document.getElementById('title-diff-sector');
+            titleNormal.addEventListener('click', () => {
+                State.difficulty = 'normal';
+                Sound.play('cursor');
+                titleNormal.className = 'py-2.5 px-2.5 rounded-xl font-black text-xs border-2 border-emerald-400 bg-emerald-950/80 text-emerald-200 transition';
+                titleSector.className = 'py-2.5 px-2.5 rounded-xl font-black text-xs border border-slate-600 bg-slate-900/80 text-slate-400 transition';
+                updateHeaderStats();
+            });
+            titleSector.addEventListener('click', () => {
+                State.difficulty = 'sector';
+                Sound.play('cursor');
+                titleSector.className = 'py-2.5 px-2.5 rounded-xl font-black text-xs border-2 border-amber-400 bg-blue-950/90 text-amber-200 transition';
+                titleNormal.className = 'py-2.5 px-2.5 rounded-xl font-black text-xs border border-slate-600 bg-slate-900/80 text-slate-400 transition';
+                updateHeaderStats();
+            });
+
+            document.querySelectorAll('.title-time-btn').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    Sound.play('cursor');
+                    State.timeLimit = parseInt(btn.dataset.time, 10);
+                    document.querySelectorAll('.title-time-btn').forEach(b => {
+                        b.className = b === btn
+                            ? 'title-time-btn py-2 px-2 rounded-xl font-black text-xs border-2 border-cyan-400 bg-cyan-950/80 text-cyan-200 transition'
+                            : 'title-time-btn py-2 px-2 rounded-xl font-black text-xs border border-slate-600 bg-slate-900/80 text-slate-400 transition';
+                    });
+                });
+            });
+
+            function startGame(mode) {
+                const nameInput = document.getElementById('input-player-name');
+                if (nameInput) State.playerName = nameInput.value.trim();
+                saveData();
+
+                Sound.play('limit');
+                State.mode = mode;
+                State.isPlaying = true;
+                State.isPaused = false;
+                State.isResolving = false;
+                State.combo = 0;
+                State.solvedCount = 0;
+                State.totalDamage = 0;
+                State.maxSingleHit = 0;
+                resetAuraToDefault();
+
+                const modeBadge = document.getElementById('mode-badge');
+                modeBadge.textContent = mode === 'score' ? `ATBスコア(${State.timeLimit}秒)` : '無限トレーニング';
+
+                document.getElementById('modal-title').classList.add('hidden');
+                setupNewRound(false);
+                startTimerLoop();
+                Sound.startBGM();
+            }
+
+            document.getElementById('btn-start-score').addEventListener('click', () => startGame('score'));
+            document.getElementById('btn-start-endless').addEventListener('click', () => startGame('endless'));
+
+            function returnToTitle() {
+                Sound.play('cursor');
+                stopTimerLoop();
+                Sound.stopBGM();
+                State.isPlaying = false;
+                State.isPaused = false;
+                State.isResolving = false;
+                const lava = document.getElementById('lava-container');
+                lava.classList.add('hidden');
+                lava.style.height = '0%';
+                ['modal-pause', 'modal-break', 'modal-timeup'].forEach(id => {
+                    const el = document.getElementById(id);
+                    el.classList.add('hidden');
+                    el.classList.remove('flex');
+                });
+                document.getElementById('modal-title').classList.remove('hidden');
+                saveData();
+            }
+
+            document.getElementById('btn-quit').addEventListener('click', returnToTitle);
+            document.getElementById('btn-pause-quit').addEventListener('click', returnToTitle);
+            document.getElementById('btn-break-quit').addEventListener('click', returnToTitle);
+
+            document.getElementById('btn-break-continue').addEventListener('click', () => {
+                Sound.play('limit');
+                const m = document.getElementById('modal-break');
+                m.classList.add('hidden');
+                m.classList.remove('flex');
+                State.isPaused = false;
+                setupNewRound(false);
+            });
+
+            document.getElementById('btn-pause').addEventListener('click', () => {
+                if (!State.isPlaying) return;
+                Sound.play('cursor');
+                State.isPaused = true;
+                const m = document.getElementById('modal-pause');
+                m.classList.remove('hidden');
+                m.classList.add('flex');
+            });
+
+            document.getElementById('btn-resume').addEventListener('click', () => {
+                Sound.play('cursor');
+                State.isPaused = false;
+                const m = document.getElementById('modal-pause');
+                m.classList.add('hidden');
+                m.classList.remove('flex');
+            });
+
+            document.getElementById('btn-reveal-answer').addEventListener('click', () => {
+                Sound.play('cursor');
+                document.getElementById('timeup-answer-box').classList.remove('hidden');
+            });
+
+            document.getElementById('btn-timeup-retry').addEventListener('click', () => {
+                Sound.play('cursor');
+                const m = document.getElementById('modal-timeup');
+                m.classList.add('hidden');
+                m.classList.remove('flex');
+                State.isPaused = false;
+                setupNewRound(true);
+            });
+
+            document.getElementById('btn-timeup-next').addEventListener('click', () => {
+                Sound.play('cursor');
+                const m = document.getElementById('modal-timeup');
+                m.classList.add('hidden');
+                m.classList.remove('flex');
+                State.isPaused = false;
+                setupNewRound(false);
+            });
+
+            function openRecords(fromPause = false) {
+                Sound.play('cursor');
+                State.openedRecordsFromPause = fromPause;
+                if (State.isPlaying) State.isPaused = true;
+                renderRecordsModal();
+                const m = document.getElementById('modal-records');
+                m.classList.remove('hidden');
+                m.classList.add('flex');
+            }
+
+            function closeRecords() {
+                Sound.play('cursor');
+                const m = document.getElementById('modal-records');
+                m.classList.add('hidden');
+                m.classList.remove('flex');
+                if (State.isPlaying && !State.openedRecordsFromPause) {
+                    if (document.getElementById('modal-pause').classList.contains('hidden')) {
+                        State.isPaused = false;
+                    }
+                }
+            }
+
+            document.getElementById('btn-records').addEventListener('click', () => openRecords(false));
+            document.getElementById('btn-title-records').addEventListener('click', () => openRecords(false));
+            document.getElementById('btn-pause-records').addEventListener('click', () => openRecords(true));
+            document.getElementById('btn-close-records').addEventListener('click', closeRecords);
+            document.getElementById('btn-close-records-bottom').addEventListener('click', closeRecords);
+
+            function openHelp() {
+                Sound.play('cursor');
+                if (State.isPlaying) State.isPaused = true;
+                const m = document.getElementById('modal-help');
+                m.classList.remove('hidden');
+                m.classList.add('flex');
+            }
+
+            function closeHelp() {
+                Sound.play('cursor');
+                const m = document.getElementById('modal-help');
+                m.classList.add('hidden');
+                m.classList.remove('flex');
+                if (State.isPlaying && document.getElementById('modal-pause').classList.contains('hidden')) {
+                    State.isPaused = false;
+                }
+            }
+
+            document.getElementById('btn-help').addEventListener('click', openHelp);
+            document.getElementById('btn-title-help').addEventListener('click', openHelp);
+            document.getElementById('btn-close-help').addEventListener('click', closeHelp);
+            document.getElementById('btn-close-help-bottom').addEventListener('click', closeHelp);
+
+            document.getElementById('btn-bgm').addEventListener('click', () => {
+                Sound.bgmEnabled = !Sound.bgmEnabled;
+                const icon = document.getElementById('icon-bgm');
+                icon.className = Sound.bgmEnabled ? 'fa-solid fa-music text-sm' : 'fa-solid fa-music text-sm text-slate-500 opacity-50';
+                if (Sound.bgmEnabled && State.isPlaying) Sound.startBGM();
+                else Sound.stopBGM();
+            });
+
+            document.getElementById('btn-sound').addEventListener('click', () => {
+                Sound.enabled = !Sound.enabled;
+                const icon = document.getElementById('icon-sound');
+                icon.className = Sound.enabled ? 'fa-solid fa-volume-high text-sm' : 'fa-solid fa-volume-xmark text-sm text-slate-500';
+                if (Sound.enabled) Sound.play('cursor');
+            });
+
+            // 初期ダミーセット
+            State.currentMonster = generateMonsterProblem();
+            State.curNum = State.currentMonster.initNum;
+            State.curDen = State.currentMonster.initDen;
+            renderMonsterAndCommands();
+            updateHeaderStats();
+        });
+    </script>
+</body>
+</html>
